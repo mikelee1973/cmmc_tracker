@@ -1,6 +1,6 @@
 # CMMC Compliance Tracker — User Guide
 
-**Last updated:** 2026-07-22
+**Last updated:** 2026-07-22 (live check added for AC.L1-b.1.i)
 **Applies to:** `CMMC_Compliance_Tracker.html`, current build
 
 This guide is also available inside the tool itself — click **📖 User Guide** in the toolbar. Both copies are kept in sync; when the tracker changes, this file and the in-app version are updated together.
@@ -52,7 +52,9 @@ A practice only shows **MET** once every one of its objectives is Met or N/A —
 
 Click **🔐 Connect to Microsoft 365** to sign in and let the tracker read real settings from your tenant via Microsoft Graph — Conditional Access policies, MFA registration, admin role counts, Intune device compliance. Results appear as advisory evidence with an **Insert into evidence notes** button. They are signals to review, never an automatic Met/Not Met.
 
-Coverage: only 6 of the 15 Level 1 practices have a live check (Access Control ii/iii, Identification & Authentication v/vi, Media Protection vii, System Integrity xii). The rest — especially Physical Protection — stay manual.
+Coverage: 7 of the 15 Level 1 practices have a live check so far (Access Control i/ii/iii, Identification & Authentication v/vi, Media Protection vii, System Integrity xii), and more are being added over time. The rest — especially Physical Protection — stay manual.
+
+- **AC.L1-b.1.i (Authorized Access Control):** counts guest/external accounts (flagging any that are enabled, for you to confirm they're still authorized), reports the number of Intune-enrolled devices, and checks whether an enabled Conditional Access policy requires a compliant or hybrid-joined device before granting access.
 
 This requires a one-time Azure AD app registration by whoever has admin rights in your Microsoft 365 tenant. See `CMMC_Tracker_Live_Check_Setup.md` for that setup.
 
@@ -87,4 +89,5 @@ If something looks wrong or you want a feature changed, just tell Claude — thi
 
 ## Changelog
 
+- **2026-07-22** — Added a live check for AC.L1-b.1.i (Authorized Access Control): guest/external account count, Intune-enrolled device count, and whether a Conditional Access policy gates access on device compliance/hybrid-join. First practice being automated in an ongoing effort to extend live-check coverage beyond the original 6 practices.
 - **2026-07-22** — Added this guide (standalone + in-app modal, accessible via the 📖 User Guide toolbar button). Tracker re-branded with Guardian/GS2 colors, fonts (Codec Pro / Montserrat), and logo.

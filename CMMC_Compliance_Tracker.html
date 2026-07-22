@@ -271,7 +271,7 @@
       <button class="modal-close" onclick="toggleGuide(false)">✕</button>
     </div>
     <div class="modal-body">
-      <div class="guide-updated">Guide last updated: 2026-07-22 · matches the current build of this tracker</div>
+      <div class="guide-updated">Guide last updated: 2026-07-22 (live check added for AC.L1-b.1.i) · matches the current build of this tracker</div>
 
       <h3>What this tool is (and isn't)</h3>
       <p>This is a self-assessment record-keeping tool for <b>CMMC Level 1</b> — 15 practices / 59 objectives, drawn directly from the DoD CMMC Assessment Guide – Level 1 (v2.13) and FAR 52.204-21. It helps you track findings, attach evidence notes, and export a report.</p>
@@ -298,7 +298,7 @@
 
       <h3>4. Live Microsoft 365 checks (optional)</h3>
       <p>Click <b>🔐 Connect to Microsoft 365</b> to sign in and let the tracker read a handful of real settings from your tenant via Microsoft Graph — Conditional Access, MFA registration, admin roles, Intune device compliance. These show up as advisory evidence with an <b>Insert into evidence notes</b> button; they never auto-set a finding for you.</p>
-      <p>Only 6 of the 15 Level 1 practices have a live check at all. This requires a one-time Azure AD app registration by whoever has admin rights in your tenant — see <code>CMMC_Tracker_Live_Check_Setup.md</code> for that setup.</p>
+      <p>7 of the 15 Level 1 practices have a live check so far (Access Control i/ii/iii, Identification &amp; Authentication v/vi, Media Protection vii, System Integrity xii) — more are being added over time. This requires a one-time Azure AD app registration by whoever has admin rights in your tenant — see <code>CMMC_Tracker_Live_Check_Setup.md</code> for that setup.</p>
 
       <h3>5. Saving and sharing progress</h3>
       <ul>
@@ -739,6 +739,26 @@ async function saveReport(filename, blob){
 let liveResults = {};
 
 const LIVE_CHECKS = {
+'AC.L1-b.1.i': { label:'Guest accounts, enrolled devices, and device-based access gating', run: async ()=>{
+  const users = await graphGet('/users?$select=userPrincipalName,userType,accountEnabled&$top=999');
+  const ulist = users.value||[];
+  const guests = ulist.filter(u=>u.userType==='Guest');
+  const enabledGuests = guests.filter(u=>u.accountEnabled);
+  let deviceCount = null;
+  try{
+    const devices = await graphGet('/deviceManagement/managedDevices?$select=deviceName&$top=999');
+    deviceCount = (devices.value||[]).length;
+  }catch(e){ /* Intune may not be licensed/configured in this tenant */ }
+  let ca = {value:[]};
+  try{ ca = await graphGet('/identity/conditionalAccess/policies'); }catch(e){ /* Policy.Read.All may not be consented */ }
+  const deviceGate = (ca.value||[]).some(p=> p.state==='enabled' && p.grantControls && (p.grantControls.builtInControls||[]).some(c=>['compliantDevice','domainJoinedDevice'].includes(c)));
+  const status = (enabledGuests.length===0 && deviceGate) ? 'good' : 'review';
+  const detail = 'Guest (external) accounts: '+guests.length+' total, '+enabledGuests.length+' enabled.'
+    +(enabledGuests.length ? ' Review each enabled guest to confirm they\'re still an authorized external user — this is the main signal for "access is limited to authorized users."' : '')
+    +'\nIntune-enrolled devices: '+(deviceCount===null?'could not retrieve (Intune may not be licensed/configured).':deviceCount+' — enrollment is the closest signal to "authorized devices are identified," but doesn\'t by itself confirm every device owner is still authorized.')
+    +'\nConditional Access policy requiring a compliant or hybrid-joined device before granting access: '+(deviceGate?'Yes.':'No — access isn\'t currently gated on device authorization state, which speaks directly to "system access is limited to authorized devices."');
+  return {status, detail};
+}},
 'AC.L1-b.1.ii': { label:'Global Administrator count', run: async ()=>{
   const roles = await graphGet('/directoryRoles');
   const ga = (roles.value||[]).find(r=>r.displayName==='Global Administrator');
