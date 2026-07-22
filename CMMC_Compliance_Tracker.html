@@ -144,6 +144,24 @@
 
   .locked-msg{padding:40px 20px;text-align:center;color:var(--muted);font-size:13.5px;background:#fff;border:1px solid var(--border);border-radius:14px;}
   .legal-notice{font-size:11px;color:var(--muted);margin-top:26px;line-height:1.5;border-top:1px solid var(--border);padding-top:14px;}
+
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(2,20,50,.6);z-index:999;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:#fff;border-radius:14px;max-width:760px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+  .modal-head{background:linear-gradient(120deg,var(--navy) 55%,var(--navy-dark));color:#fff;padding:18px 24px;border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--brand-purple);}
+  .modal-head h2{margin:0;font-size:16px;}
+  .modal-head .modal-sub{color:#b9a8e0;font-size:11px;margin-top:2px;}
+  .modal-close{cursor:pointer;background:rgba(255,255,255,.15);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:15px;font-weight:700;flex-shrink:0;}
+  .modal-close:hover{background:rgba(255,255,255,.28);}
+  .modal-body{padding:22px 26px 30px;font-size:13px;line-height:1.65;color:var(--text);max-height:75vh;overflow-y:auto;}
+  .modal-body h3{font-family:'Codec Pro','Montserrat',sans-serif;font-size:14px;color:var(--brand-purple);margin:24px 0 8px;border-bottom:1px solid var(--border);padding-bottom:6px;}
+  .modal-body h3:first-of-type{margin-top:0;}
+  .modal-body ul,.modal-body ol{margin:6px 0 10px;padding-left:20px;}
+  .modal-body li{margin-bottom:5px;}
+  .modal-body p{margin:0 0 10px;}
+  .modal-body b{color:var(--navy);}
+  .modal-body code{background:#f4f6fa;border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11.5px;}
+  .guide-updated{font-size:10.5px;color:var(--muted);font-style:italic;margin-bottom:14px;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.30.0/lib/msal-browser.min.js"></script>
@@ -167,6 +185,7 @@
 <div class="toolbar">
   <div class="title">📋 LEVEL 1 SELF-ASSESSMENT (15 PRACTICES · FAR 52.204-21)</div>
   <div class="btnbar">
+    <button class="pillbtn" onclick="toggleGuide(true)">📖 User Guide</button>
     <button class="pillbtn" onclick="toggleInfoPanel()">⚙ Assessment Info</button>
     <button class="pillbtn primary" onclick="exportPDF()" id="pdfBtn">📄 Export PDF</button>
     <button class="pillbtn" onclick="exportReport()">📝 Export Report (.txt)</button>
@@ -240,6 +259,64 @@
     Practice text, assessment objectives, and FAR/NIST references are drawn directly from the DoD CMMC Assessment Guide – Level 1 (v2.13, Sept 2024) and 32 CFR Part 170. A finding of MET or NOT APPLICABLE on every objective is required for a practice to be MET; one NOT MET objective fails the whole practice, mirroring the 32 CFR §170.24 scoring rules. This tool supports self-assessment record-keeping only — it does not submit anything to SPRS.
   </div>
 
+</div>
+
+<div class="modal-overlay" id="guideModal" onclick="if(event.target===this) toggleGuide(false)">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h2>📖 User Guide — CMMC Compliance Tracker</h2>
+        <div class="modal-sub">Guardian Strategic Solutions (GS2 LLC)</div>
+      </div>
+      <button class="modal-close" onclick="toggleGuide(false)">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="guide-updated">Guide last updated: 2026-07-22 · matches the current build of this tracker</div>
+
+      <h3>What this tool is (and isn't)</h3>
+      <p>This is a self-assessment record-keeping tool for <b>CMMC Level 1</b> — 15 practices / 59 objectives, drawn directly from the DoD CMMC Assessment Guide – Level 1 (v2.13) and FAR 52.204-21. It helps you track findings, attach evidence notes, and export a report.</p>
+      <p><b>It does not</b> submit anything to SPRS, and it does not automatically decide whether a practice is Met — every finding is your judgment call, informed by the tool's hints and live checks.</p>
+
+      <h3>1. Start with Assessment Info</h3>
+      <p>Click <b>⚙ Assessment Info</b> in the toolbar and fill in your organization name, assessment date, assessor/preparer, and — most importantly — the <b>CMMC Assessment Scope</b>. Per 32 CFR §170.19, scope must be defined before a self-assessment is valid; the overall status banner stays locked on "Define scope to begin" until you do this.</p>
+
+      <h3>2. Work through the practices</h3>
+      <p>Practices are grouped into 6 domain cards (Access Control, Identification &amp; Authentication, Media Protection, Physical Protection, System &amp; Communications Protection, System &amp; Information Integrity). Click a practice to expand it and see its objectives.</p>
+      <ul>
+        <li>For each objective, choose <b>Met</b>, <b>Not Met</b>, or <b>N/A</b>.</li>
+        <li>Use the notes field under each objective to record your evidence (what you examined, interviewed, or tested — the same method real CMMC assessors use).</li>
+        <li>A practice only shows <b>MET</b> once every one of its objectives is Met or N/A — one Not Met objective fails the whole practice (32 CFR §170.24 scoring rule).</li>
+        <li>Click <b>Show Azure/M365 configuration guidance</b> under an objective for suggested Microsoft 365/Entra ID settings that map to that requirement, sourced from Microsoft's own CMMC placemat and technical reference guide.</li>
+      </ul>
+
+      <h3>3. Read your status at a glance</h3>
+      <ul>
+        <li><b>Colored chips</b> on each practice row show each objective's status (green = Met, red = Not Met, blue = N/A, gray = not assessed).</li>
+        <li><b>Domain rings</b> show percent complete for that domain; the big ring in the summary bar shows overall progress.</li>
+        <li>The <b>overall status banner</b> reads: <i>Define scope to begin</i> (no scope yet) → <i>In Progress</i> (scope set, not all objectives assessed) → <i>Compliant</i> (all practices Met) or <i>Non-Compliant</i> (at least one practice Not Met).</li>
+      </ul>
+
+      <h3>4. Live Microsoft 365 checks (optional)</h3>
+      <p>Click <b>🔐 Connect to Microsoft 365</b> to sign in and let the tracker read a handful of real settings from your tenant via Microsoft Graph — Conditional Access, MFA registration, admin roles, Intune device compliance. These show up as advisory evidence with an <b>Insert into evidence notes</b> button; they never auto-set a finding for you.</p>
+      <p>Only 6 of the 15 Level 1 practices have a live check at all. This requires a one-time Azure AD app registration by whoever has admin rights in your tenant — see <code>CMMC_Tracker_Live_Check_Setup.md</code> for that setup.</p>
+
+      <h3>5. Saving and sharing progress</h3>
+      <ul>
+        <li><b>💾 Save Progress</b> / <b>📂 Load Progress</b> — download or load a local <code>.json</code> snapshot of your checklist.</li>
+        <li>While connected to Microsoft 365, your progress also auto-saves a few seconds after each change to a shared file in <b>Guardian / Shared Documents / CMMC / Current</b> — so anyone on the team who connects sees (and continues) the same shared progress, not just their own browser's copy. It checks that file whenever you connect (including automatically on page load, if this browser still has a session) and offers to load it, asking first if it would overwrite unsaved local changes.</li>
+        <li><b>↺ Reset</b> only clears your local browser copy — it will not touch the shared SharePoint file unless you go on to make another change afterward.</li>
+      </ul>
+
+      <h3>6. Exporting reports</h3>
+      <p><b>📄 Export PDF</b> and <b>📝 Export Report (.txt)</b> both download a full report of your findings, evidence, and references locally. While connected to Microsoft 365, exports are also saved to <b>Guardian / Shared Documents / CMMC / Build</b>.</p>
+
+      <h3>Level 2</h3>
+      <p>Level 2 (110 practices from NIST SP 800-171) stays locked until every Level 1 practice shows MET. When you're ready, ask Claude to build out the Level 2 tracker in this same tool.</p>
+
+      <h3>Getting help</h3>
+      <p>If something in the tracker looks wrong, or you want a feature changed, just tell Claude what you'd like — this guide gets updated alongside the tool itself.</p>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1133,6 +1210,13 @@ function resetAll(){
   refreshAllBadgesAndChips();
   refreshDashboard();
 }
+
+function toggleGuide(show){
+  const el = document.getElementById('guideModal');
+  if(show===undefined) show = !el.classList.contains('open');
+  el.classList.toggle('open', show);
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') toggleGuide(false); });
 
 renderPractices();
 bindHeaderFields();
