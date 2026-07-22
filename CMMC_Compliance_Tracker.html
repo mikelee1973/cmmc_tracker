@@ -208,7 +208,7 @@
   <div class="connectcard">
     <div class="connect-left">
       <div class="connect-status off" id="connectStatus">🔌 Not connected</div><br>
-      <span id="connectDetail"><b>Live environment checks</b> read real settings from your Microsoft 365/Entra ID tenant via Microsoft Graph (read-only) to back up specific objectives below with actual evidence — they're signals to review, not an automatic Met/Not Met. When connected, every export (PDF / .txt / .json) is also auto-saved to <b>Guardian / Shared Documents / CMMC / Current</b> in SharePoint, on top of the usual local download. Requires a one-time Azure AD app registration in your tenant; see <b>CMMC_Tracker_Live_Check_Setup.md</b>. Nothing you sign into here ever passes through anyone but Microsoft and your own browser.</span><br>
+      <span id="connectDetail"><b>Live environment checks</b> read real settings from your Microsoft 365/Entra ID tenant via Microsoft Graph (read-only) to back up specific objectives below with actual evidence — they're signals to review, not an automatic Met/Not Met. When connected, your checklist progress auto-saves to a shared file in <b>Guardian / Shared Documents / CMMC / Current</b> as you work (a few seconds after each change), and reloads from there — with a confirmation first if it would overwrite unsaved local changes — whenever you connect, including automatically on page load if this browser already has a session. Every export (PDF / .txt / .json) is separately saved there too, alongside the usual local download. Requires a one-time Azure AD app registration in your tenant; see <b>CMMC_Tracker_Live_Check_Setup.md</b>. Nothing you sign into here ever passes through anyone but Microsoft and your own browser.</span><br>
       <span id="sharepointStatus" style="display:none;font-size:11.5px;font-weight:700;"></span>
     </div>
     <div class="connect-right">
@@ -396,7 +396,9 @@ const MSAL_TENANT_ID = '960c41ba-856c-45d8-9dc5-191fd5e083af';
 const SHAREPOINT_HOST = 'guardianstategicsolutionsll.sharepoint.com';
 const SHAREPOINT_SITE_PATH = 'Guardian';
 const SHAREPOINT_FOLDER_PATH = 'CMMC/Current'; // relative to the site's default document library (Shared Documents)
+const SHAREPOINT_STATE_FILENAME = 'CMMC-L1-current-state.json'; // the single "current progress" file, overwritten each save
 let cachedSiteId = null;
+let syncDebounceTimer = null;
 
 const GRAPH_SCOPES = [
   'Policy.Read.All',
@@ -447,14 +449,35 @@ async function connectMicrosoft(){
     const resp = await msalInstance.loginPopup({ scopes: GRAPH_SCOPES });
     currentAccount = resp.account;
     setConnectUI(true, 'Connected as '+currentAccount.username);
+    await loadProgressFromSharePoint(true);
   }catch(err){
     setConnectUI(false, 'Sign-in failed: '+(err && err.message ? err.message : err), true);
+  }
+}
+
+// Runs once on page load. If this browser tab already has a cached MSAL session
+// (e.g. you reloaded the page), reconnect and check SharePoint for newer progress
+// without popping up a sign-in window. If there's no cached session, this quietly
+// does nothing and leaves the "Connect" button showing — no forced login on open.
+async function attemptSilentReconnect(){
+  if(!msalConfigured()) return;
+  try{
+    await initMsal();
+    const accounts = msalInstance.getAllAccounts();
+    if(!accounts || !accounts.length) return;
+    currentAccount = accounts[0];
+    await msalInstance.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: currentAccount });
+    setConnectUI(true, 'Connected as '+currentAccount.username);
+    await loadProgressFromSharePoint(true);
+  }catch(e){
+    currentAccount = null; // stay disconnected quietly; user can click Connect if needed
   }
 }
 
 function disconnectMicrosoft(){
   currentAccount = null;
   liveResults = {};
+  clearTimeout(syncDebounceTimer);
   try{ if(msalInstance) msalInstance.clearCache && msalInstance.clearCache(); }catch(e){}
   setConnectUI(false);
   refreshAllLiveBoxes();
@@ -524,6 +547,69 @@ async function uploadToSharePoint(filename, blob){
     throw new Error(res.status+' '+res.statusText+(bodyText?(' — '+bodyText):''));
   }
   return res.json();
+}
+
+async function downloadJSONFromSharePoint(filename){
+  const token = await getGraphToken();
+  const siteId = await getSharePointSiteId();
+  const path = SHAREPOINT_FOLDER_PATH+'/'+filename;
+  const res = await fetch('https://graph.microsoft.com/v1.0/sites/'+siteId+'/drive/root:/'+path+':/content', { headers:{ Authorization:'Bearer '+token } });
+  if(res.status===404) return null; // no file saved yet — not an error
+  if(!res.ok){
+    let bodyText = '';
+    try{ bodyText = (await res.json()).error?.message || ''; }catch(e){}
+    throw new Error(res.status+' '+res.statusText+(bodyText?(' — '+bodyText):''));
+  }
+  return res.json();
+}
+
+function hasAnyLocalProgress(){
+  if(state.org || state.scope || state.assessor || state.date) return true;
+  return Object.keys(state.obj).some(pid =>
+    Object.values(state.obj[pid]||{}).some(o => o.status || (o.note && o.note.trim()))
+  );
+}
+
+// Checks CMMC/Current in SharePoint for a saved progress file and loads it.
+// If this browser already has unsaved local progress, confirms before overwriting
+// it rather than silently replacing whatever's on screen.
+async function loadProgressFromSharePoint(promptFirst){
+  try{
+    const remote = await downloadJSONFromSharePoint(SHAREPOINT_STATE_FILENAME);
+    if(!remote){
+      setSharePointStatus('Connected — no saved progress found yet in SharePoint (CMMC/Current). It\'ll be created the first time something is saved.', false);
+      return;
+    }
+    if(promptFirst && hasAnyLocalProgress()){
+      const ok = confirm('Found existing progress saved in SharePoint (CMMC/Current/'+SHAREPOINT_STATE_FILENAME+').\n\nLoad it? This replaces what\'s currently shown in this browser (your local copy isn\'t deleted, just not shown until you reload).');
+      if(!ok){ setSharePointStatus('Kept your local progress on screen — did not load the SharePoint copy.', false); return; }
+    }
+    state = Object.assign(defaultState(), remote);
+    saveState({skipSync:true});
+    bindHeaderFields();
+    refreshAllBadgesAndChips();
+    refreshDashboard();
+    setSharePointStatus('✅ Loaded progress from SharePoint (CMMC/Current/'+SHAREPOINT_STATE_FILENAME+').', false);
+  }catch(err){
+    setSharePointStatus('⚠ Could not check SharePoint for existing progress ('+(err && err.message ? err.message : err)+').', true);
+  }
+}
+
+function scheduleSyncToSharePoint(){
+  if(!currentAccount) return;
+  clearTimeout(syncDebounceTimer);
+  syncDebounceTimer = setTimeout(syncProgressToSharePointNow, 2500);
+}
+
+async function syncProgressToSharePointNow(){
+  if(!currentAccount) return;
+  try{
+    const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+    await uploadToSharePoint(SHAREPOINT_STATE_FILENAME, blob);
+    setSharePointStatus('✅ Progress auto-saved to SharePoint ('+new Date().toLocaleTimeString()+').', false);
+  }catch(err){
+    setSharePointStatus('⚠ Could not auto-save progress to SharePoint ('+(err && err.message ? err.message : err)+'). Still saved locally in this browser.', true);
+  }
 }
 
 function setSharePointStatus(text, isError){
@@ -700,7 +786,10 @@ function loadState(){
   }catch(e){}
   return defaultState();
 }
-function saveState(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){} }
+function saveState(opts){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+  if(!(opts && opts.skipSync)) scheduleSyncToSharePoint();
+}
 
 function getObj(pid,key){ return (state.obj[pid] && state.obj[pid][key]) || {status:'',note:''}; }
 function setObjective(pid,key,field,value){
@@ -1023,9 +1112,12 @@ function exportPDF(){
 }
 
 function resetAll(){
-  if(!confirm('This will erase all tracked progress. Continue?')) return;
+  const sharedWarning = currentAccount
+    ? '\n\nYou\'re connected to the shared SharePoint progress file. This reset stays local only for now — the SharePoint copy is untouched unless you go on to make another change (which would then sync this blank state and overwrite it for everyone). Disconnect first if you just want to look at a blank tracker without any risk to the shared file.'
+    : '';
+  if(!confirm('This will erase all tracked progress in this browser.'+sharedWarning+'\n\nContinue?')) return;
   state = defaultState();
-  saveState();
+  saveState({skipSync:true});
   bindHeaderFields();
   refreshAllBadgesAndChips();
   refreshDashboard();
@@ -1035,6 +1127,7 @@ renderPractices();
 bindHeaderFields();
 refreshAllBadgesAndChips();
 refreshDashboard();
+attemptSilentReconnect();
 </script>
 </body>
 </html>
