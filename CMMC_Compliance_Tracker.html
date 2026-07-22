@@ -137,7 +137,7 @@
   .legal-notice{font-size:11px;color:var(--muted);margin-top:26px;line-height:1.5;border-top:1px solid var(--border);padding-top:14px;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@4.30.0/lib/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.30.0/lib/msal-browser.min.js"></script>
 </head>
 <body>
 
@@ -421,7 +421,8 @@ async function initMsal(){
     });
     // msal-browser v3+ requires an explicit, awaited initialize() call before
     // any other MSAL API (loginPopup, acquireTokenSilent, etc.) can be used.
-    msalInitPromise = msalInstance.initialize();
+    // Guarded with a feature check in case a future swapped-in version doesn't have it.
+    msalInitPromise = (typeof msalInstance.initialize === 'function') ? msalInstance.initialize() : Promise.resolve();
   }
   await msalInitPromise;
   return msalInstance;
