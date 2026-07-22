@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CMMC Compliance Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --navy:#0d1b3e; --navy-dark:#081029; --green:#1a9e5c; --green-dark:#0f7a45;
+    --met:#1a9e5c; --met-bg:#e4f6ec;
+    --notmet:#d64545; --notmet-bg:#fbe9e9;
+    --na:#3b6fd6; --na-bg:#e8eefb;
+    --unset:#c3c9d4; --unset-bg:#f1f3f6;
+    --border:#e1e5ec; --bg:#f4f6fa; --card:#ffffff; --text:#1c2434; --muted:#7a8291;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:0;}
+
+  .topbar{background:var(--navy);color:#fff;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand .icon{width:36px;height:36px;border-radius:9px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .brand h1{margin:0;font-size:17px;font-weight:700;}
+  .brand .sub{color:#aeb8d6;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;}
+  .navlinks{display:flex;gap:4px;}
+  .navlinks .nl{padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;color:#c7cfe6;cursor:pointer;}
+  .navlinks .nl.active{background:rgba(255,255,255,.12);color:#fff;}
+  .navlinks .nl.locked{opacity:.55;cursor:not-allowed;}
+
+  .toolbar{background:#fff;border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+  .toolbar .title{font-weight:700;font-size:14.5px;display:flex;align-items:center;gap:8px;color:var(--navy);}
+  .btnbar{display:flex;gap:8px;flex-wrap:wrap;}
+  button, .pillbtn{cursor:pointer;border:1px solid var(--border);border-radius:20px;padding:8px 16px;font-size:12.5px;font-weight:700;font-family:inherit;background:#fff;color:var(--text);display:inline-flex;align-items:center;gap:6px;}
+  .pillbtn.primary{background:var(--green);border-color:var(--green);color:#fff;}
+  .pillbtn.primary:hover{background:var(--green-dark);}
+  .pillbtn:hover{background:#f4f6fa;}
+  .pillbtn.danger{color:var(--notmet);border-color:#f2c6c6;}
+  input[type=file]{display:none;}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:20px 24px 60px;}
+
+  .infopanel{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px;display:none;}
+  .infopanel.open{display:block;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  label{display:block;font-size:11.5px;font-weight:700;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em;}
+  input[type=text],input[type=date],textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13.5px;font-family:inherit;background:#fff;color:var(--text);}
+  textarea{resize:vertical;min-height:34px;}
+  .field{margin-bottom:12px;}
+
+  .scope-warning{background:#fff6e8;border:1px solid #f0c14b;color:#7a5300;border-radius:10px;padding:10px 16px;font-size:13px;margin-bottom:16px;}
+
+  .legendbar{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;}
+  .legend-dots{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;font-weight:600;color:var(--muted);}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle;}
+  .summary-right{display:flex;align-items:center;gap:18px;}
+  .ring{position:relative;width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .ring .inner{position:absolute;width:44px;height:44px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--navy);}
+  .status-badge{display:inline-block;padding:6px 14px;border-radius:20px;font-weight:700;font-size:12.5px;}
+  .status-COMPLIANT{background:var(--met-bg);color:var(--met);}
+  .status-NONCOMPLIANT_HASFAIL{background:var(--notmet-bg);color:var(--notmet);}
+  .status-INPROGRESS{background:var(--unset-bg);color:var(--muted);}
+  .status-NOSCOPE{background:#fff6e8;color:#7a5300;}
+  .counts-mini{font-size:12px;color:var(--muted);}
+  .counts-mini b{color:var(--text);}
+
+  .not-met-strip{margin-top:12px;font-size:13px;color:var(--notmet);}
+  .not-met-strip li{margin-bottom:2px;}
+
+  .domain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;}
+  .domain-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
+  .domain-card-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;}
+  .domain-card-head .left{display:flex;gap:10px;align-items:flex-start;}
+  .domain-icon{width:38px;height:38px;border-radius:9px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+  .domain-title{font-weight:800;font-size:13.5px;color:var(--navy);letter-spacing:.02em;}
+  .domain-sub{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-top:2px;}
+  .ring-sm{width:44px;height:44px;}
+  .ring-sm .inner{width:33px;height:33px;font-size:10.5px;}
+
+  details.practice{border-top:1px solid var(--border);}
+  details.practice:first-of-type{border-top:none;}
+  details.practice>summary{padding:10px 2px;cursor:pointer;list-style:none;}
+  details.practice>summary::-webkit-details-marker{display:none;}
+  .p-summary-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .p-name-line{font-size:12.5px;font-weight:700;color:var(--text);}
+  .p-id-line{font-size:10.5px;color:var(--muted);font-family:ui-monospace,Menlo,monospace;}
+  .chip-row{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;}
+  .chip{width:20px;height:20px;border-radius:5px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;color:#fff;background:var(--unset);}
+  .chip.met{background:var(--met);}
+  .chip.notmet{background:var(--notmet);}
+  .chip.na{background:var(--na);}
+  .badge-sm{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:12px;white-space:nowrap;}
+  .badge-MET{background:var(--met-bg);color:var(--met);}
+  .badge-NOTMET{background:var(--notmet-bg);color:var(--notmet);}
+  .badge-INCOMPLETE{background:var(--unset-bg);color:var(--muted);}
+
+  .practice-body{padding:8px 2px 14px;}
+  .statement{font-size:12.5px;color:#374151;background:#f8f9fb;border-left:3px solid var(--navy);padding:8px 10px;border-radius:5px;margin-bottom:10px;}
+  .obj-row{border:1px solid var(--border);border-radius:8px;padding:9px 11px;margin-bottom:7px;background:#fbfcfe;}
+  .obj-row .obj-text{font-size:12.5px;margin-bottom:7px;}
+  .obj-key{font-weight:800;color:var(--navy);margin-right:4px;}
+  .radios{display:flex;gap:12px;margin-bottom:6px;flex-wrap:wrap;}
+  .radios label{display:flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:var(--text);text-transform:none;margin-bottom:0;cursor:pointer;}
+  .radios input{cursor:pointer;}
+  .warn{color:#b45309;font-size:11px;margin-top:3px;display:none;}
+  .hint-toggle{color:var(--na);font-size:11px;font-weight:700;margin-top:5px;cursor:pointer;display:inline-block;}
+  .hint-toggle:hover{text-decoration:underline;}
+  .hint-box{margin-top:6px;padding:9px 11px;background:var(--na-bg);border:1px solid #c9d9f5;border-radius:8px;font-size:11.5px;color:#1f2b47;}
+  .hint-cov{display:inline-block;font-size:10px;font-weight:800;background:#dbe6fb;color:var(--na);border-radius:10px;padding:2px 8px;margin-bottom:6px;}
+  .hint-cov-na{display:inline-block;font-size:10px;font-weight:800;background:var(--unset-bg);color:var(--muted);border-radius:10px;padding:2px 8px;margin-bottom:6px;}
+  .hint-tools{margin-bottom:6px;}
+  .hint-tag{display:inline-block;font-size:10px;font-weight:700;background:#fff;border:1px solid #c9d9f5;color:#1f2b47;border-radius:10px;padding:2px 8px;margin:0 4px 4px 0;}
+  .hint-text{margin-bottom:5px;line-height:1.4;}
+  .hint-customer{margin-bottom:5px;line-height:1.4;color:#374151;}
+  .hint-src{font-size:9.5px;color:var(--muted);font-style:italic;}
+  .refs{font-size:10.5px;color:var(--muted);margin-top:8px;border-top:1px dashed var(--border);padding-top:6px;}
+
+  .connectcard{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;}
+  .connect-left{font-size:12.5px;color:var(--muted);max-width:560px;line-height:1.5;}
+  .connect-left b{color:var(--text);}
+  .connect-status{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12px;padding:4px 10px;border-radius:12px;margin-bottom:6px;}
+  .connect-status.off{background:var(--unset-bg);color:var(--muted);}
+  .connect-status.on{background:var(--met-bg);color:var(--met);}
+  .connect-status.err{background:var(--notmet-bg);color:var(--notmet);}
+  .connect-right{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+
+  .live-toggle{color:#8a5a00;font-size:11px;font-weight:700;margin-top:5px;cursor:pointer;display:inline-block;margin-left:10px;}
+  .live-toggle:hover{text-decoration:underline;}
+  .live-box{margin-top:6px;padding:9px 11px;border-radius:8px;font-size:11.5px;display:none;}
+  .live-box.pending{background:#fff6e8;border:1px solid #f0c14b;color:#7a5300;}
+  .live-box.good{background:var(--met-bg);border:1px solid #b7e4c7;color:#0f5132;}
+  .live-box.review{background:#fff6e8;border:1px solid #f0c14b;color:#7a5300;}
+  .live-box.error{background:var(--notmet-bg);border:1px solid #f2c6c6;color:#7a1f1f;}
+  .live-status-tag{display:inline-block;font-size:10px;font-weight:800;border-radius:10px;padding:2px 8px;margin-bottom:6px;}
+  .live-detail{white-space:pre-wrap;line-height:1.4;margin-bottom:6px;}
+  .live-apply-btn{font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:12px;border:1px solid currentColor;background:transparent;cursor:pointer;}
+
+  .locked-msg{padding:40px 20px;text-align:center;color:var(--muted);font-size:13.5px;background:#fff;border:1px solid var(--border);border-radius:14px;}
+  .legal-notice{font-size:11px;color:var(--muted);margin-top:26px;line-height:1.5;border-top:1px solid var(--border);padding-top:14px;}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@4.30.0/lib/msal-browser.min.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="icon">🛡️</div>
+    <div>
+      <h1>CMMC Compliance Tracker</h1>
+      <div class="sub">DoD Cybersecurity Maturity Model Certification</div>
+    </div>
+  </div>
+  <div class="navlinks">
+    <div class="nl active" id="navL1" onclick="switchTab('L1')">Level 1</div>
+    <div class="nl locked" id="navL2" onclick="switchTab('L2')">Level 2</div>
+  </div>
+</div>
+
+<div class="toolbar">
+  <div class="title">📋 LEVEL 1 SELF-ASSESSMENT (15 PRACTICES · FAR 52.204-21)</div>
+  <div class="btnbar">
+    <button class="pillbtn" onclick="toggleInfoPanel()">⚙ Assessment Info</button>
+    <button class="pillbtn primary" onclick="exportPDF()" id="pdfBtn">📄 Export PDF</button>
+    <button class="pillbtn" onclick="exportReport()">📝 Export Report (.txt)</button>
+    <button class="pillbtn" onclick="exportJSON()">💾 Save Progress</button>
+    <label class="pillbtn" style="display:inline-flex;">📂 Load Progress<input type="file" id="importFile" accept=".json" onchange="importJSON(event)"></label>
+    <button class="pillbtn danger" onclick="resetAll()">↺ Reset</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="infopanel" id="infoPanel">
+    <div class="grid2">
+      <div class="field"><label>Organization Name</label><input type="text" id="orgName" placeholder="e.g. GS2 LLC"></div>
+      <div class="field"><label>Assessment Date</label><input type="date" id="assessDate"></div>
+    </div>
+    <div class="field">
+      <label>CMMC Assessment Scope (required — 32 CFR §170.19)</label>
+      <textarea id="scopeText" placeholder="Describe which assets/systems process, store, or transmit FCI and are therefore in scope for this self-assessment..."></textarea>
+    </div>
+    <div class="field"><label>Assessor / Preparer</label><input type="text" id="assessorName" placeholder="Name / role"></div>
+  </div>
+
+  <div id="scopeWarning" class="scope-warning" style="display:none;">
+    ⚠ No Assessment Scope defined yet. Per 32 CFR §170.19(a), the OSA must specify the CMMC Assessment Scope before self-assessing. Open <b>Assessment Info</b> above and fill it in — overall status stays locked until you do.
+  </div>
+
+  <div class="legendbar">
+    <div class="legend-dots">
+      <div><span class="dot" style="background:var(--met);"></span>Met</div>
+      <div><span class="dot" style="background:var(--notmet);"></span>Not Met</div>
+      <div><span class="dot" style="background:var(--na);"></span>N/A</div>
+      <div><span class="dot" style="background:var(--unset);"></span>Not Assessed</div>
+    </div>
+    <div class="summary-right">
+      <div class="counts-mini">
+        Practices MET <b id="cntMet">0/15</b> &nbsp;·&nbsp;
+        Not Met <b id="cntNotMet">0</b> &nbsp;·&nbsp;
+        Objectives answered <b id="cntObj">0/59</b>
+      </div>
+      <div class="ring" id="overallRing"><div class="inner" id="overallRingText">0%</div></div>
+      <span id="overallBadge" class="status-badge status-NOSCOPE">Define scope to begin</span>
+    </div>
+  </div>
+
+  <ul class="not-met-strip" id="notMetList"></ul>
+
+  <div class="connectcard">
+    <div class="connect-left">
+      <div class="connect-status off" id="connectStatus">🔌 Not connected</div><br>
+      <span id="connectDetail"><b>Live environment checks</b> read real settings from your Microsoft 365/Entra ID tenant via Microsoft Graph (read-only) to back up specific objectives below with actual evidence — they're signals to review, not an automatic Met/Not Met. Requires a one-time Azure AD app registration in your tenant; see <b>CMMC_Tracker_Live_Check_Setup.md</b>. Nothing you sign into here ever passes through anyone but Microsoft and your own browser.</span>
+    </div>
+    <div class="connect-right">
+      <button class="pillbtn" id="connectBtn" onclick="connectMicrosoft()">🔐 Connect to Microsoft 365</button>
+      <button class="pillbtn primary" id="runChecksBtn" onclick="runLiveChecks()" style="display:none;">▶ Run Live Checks</button>
+      <button class="pillbtn" id="disconnectBtn" onclick="disconnectMicrosoft()" style="display:none;">Sign out</button>
+    </div>
+  </div>
+
+  <div id="panelL1"></div>
+
+  <div id="panelL2" style="display:none;">
+    <div class="locked-msg">
+      Level 2 (110 practices from NIST SP 800-171) unlocks for tracking once every Level 1 practice below shows <b>MET</b>.<br>
+      When you're ready, ask Claude to build out the Level 2 tracker in this same tool.
+    </div>
+  </div>
+
+  <div class="legal-notice">
+    Practice text, assessment objectives, and FAR/NIST references are drawn directly from the DoD CMMC Assessment Guide – Level 1 (v2.13, Sept 2024) and 32 CFR Part 170. A finding of MET or NOT APPLICABLE on every objective is required for a practice to be MET; one NOT MET objective fails the whole practice, mirroring the 32 CFR §170.24 scoring rules. This tool supports self-assessment record-keeping only — it does not submit anything to SPRS.
+  </div>
+
+</div>
+
+<script>
+const PRACTICES = [
+{id:'AC.L1-b.1.i',domain:'AC',domainName:'Access Control',icon:'🔑',statement:'Limit information system access to authorized users, processes acting on behalf of authorized users, or devices (including other information systems).',name:'Authorized Access Control',far:'FAR 52.204-21 b.1.i',nist:'NIST SP 800-171 Rev.2 §3.1.1',objectives:[
+ {k:'a',text:'Authorized users are identified.'},
+ {k:'b',text:'Processes acting on behalf of authorized users are identified.'},
+ {k:'c',text:'Devices (and other systems) authorized to connect to the system are identified.'},
+ {k:'d',text:'System access is limited to authorized users.'},
+ {k:'e',text:'System access is limited to processes acting on behalf of authorized users.'},
+ {k:'f',text:'System access is limited to authorized devices (including other systems).'}]},
+{id:'AC.L1-b.1.ii',domain:'AC',domainName:'Access Control',icon:'🔑',name:'Transaction & Function Control',statement:'Limit information system access to the types of transactions and functions that authorized users are permitted to execute.',far:'FAR 52.204-21 b.1.ii',nist:'NIST SP 800-171 Rev.2 §3.1.2',objectives:[
+ {k:'a',text:'The types of transactions and functions that authorized users are permitted to execute are defined.'},
+ {k:'b',text:'System access is limited to the defined types of transactions and functions for authorized users.'}]},
+{id:'AC.L1-b.1.iii',domain:'AC',domainName:'Access Control',icon:'🔑',name:'External Connections',statement:'Verify and control/limit connections to and use of external information systems.',far:'FAR 52.204-21 b.1.iii',nist:'NIST SP 800-171 Rev.2 §3.1.20',objectives:[
+ {k:'a',text:'Connections to external systems are identified.'},
+ {k:'b',text:'The use of external systems is identified.'},
+ {k:'c',text:'Connections to external systems are verified.'},
+ {k:'d',text:'The use of external systems is verified.'},
+ {k:'e',text:'Connections to external systems are controlled/limited.'},
+ {k:'f',text:'The use of external systems is controlled/limited.'}]},
+{id:'AC.L1-b.1.iv',domain:'AC',domainName:'Access Control',icon:'🔑',name:'Control Public Information',statement:'Control information posted or processed on publicly accessible information systems.',far:'FAR 52.204-21 b.1.iv',nist:'NIST SP 800-171 Rev.2 §3.1.22',objectives:[
+ {k:'a',text:'Individuals authorized to post or process information on publicly accessible systems are identified.'},
+ {k:'b',text:'Procedures to ensure FCI is not posted or processed on publicly accessible systems are identified.'},
+ {k:'c',text:'A review process is in place prior to posting of any content to publicly accessible systems.'},
+ {k:'d',text:'Content on publicly accessible systems is reviewed to ensure that it does not include FCI.'},
+ {k:'e',text:'Mechanisms are in place to remove and address improper posting of FCI.'}]},
+{id:'IA.L1-b.1.v',domain:'IA',domainName:'Identification & Authentication',icon:'🪪',name:'Identification',statement:'Identify information system users, processes acting on behalf of users, or devices.',far:'FAR 52.204-21 b.1.v',nist:'NIST SP 800-171 Rev.2 §3.5.1',objectives:[
+ {k:'a',text:'System users are identified.'},
+ {k:'b',text:'Processes acting on behalf of users are identified.'},
+ {k:'c',text:'Devices accessing the system are identified.'}]},
+{id:'IA.L1-b.1.vi',domain:'IA',domainName:'Identification & Authentication',icon:'🪪',name:'Authentication',statement:'Authenticate (or verify) the identities of those users, processes, or devices, as a prerequisite to allowing access to organizational information systems.',far:'FAR 52.204-21 b.1.vi',nist:'NIST SP 800-171 Rev.2 §3.5.2',objectives:[
+ {k:'a',text:'The identity of each user is authenticated or verified as a prerequisite to system access.'},
+ {k:'b',text:'The identity of each process acting on behalf of a user is authenticated or verified as a prerequisite to system access.'},
+ {k:'c',text:'The identity of each device accessing or connecting to the system is authenticated or verified as a prerequisite to system access.'}]},
+{id:'MP.L1-b.1.vii',domain:'MP',domainName:'Media Protection',icon:'💾',name:'Media Disposal',statement:'Sanitize or destroy information system media containing Federal Contract Information before disposal or release for reuse.',far:'FAR 52.204-21 b.1.vii',nist:'NIST SP 800-171 Rev.2 §3.8.3',objectives:[
+ {k:'a',text:'System media containing FCI is sanitized or destroyed before disposal.'},
+ {k:'b',text:'System media containing FCI is sanitized before it is released for reuse.'}]},
+{id:'PE.L1-b.1.viii',domain:'PE',domainName:'Physical Protection',icon:'🏢',name:'Limit Physical Access',statement:'Limit physical access to organizational information systems, equipment, and the respective operating environments to authorized individuals.',far:'FAR 52.204-21 b.1.viii',nist:'NIST SP 800-171 Rev.2 §3.10.1',objectives:[
+ {k:'a',text:'Authorized individuals allowed physical access are identified.'},
+ {k:'b',text:'Physical access to organizational systems is limited to authorized individuals.'},
+ {k:'c',text:'Physical access to equipment is limited to authorized individuals.'},
+ {k:'d',text:'Physical access to operating environments is limited to authorized individuals.'}]},
+{id:'PE.L1-b.1.ix',domain:'PE',domainName:'Physical Protection',icon:'🏢',name:'Manage Visitors & Physical Access',statement:'Escort visitors and monitor visitor activity; maintain audit logs of physical access; and control and manage physical access devices.',far:'FAR 52.204-21 b.1.ix',nist:'NIST SP 800-171 Rev.2 §§3.10.3–3.10.5',objectives:[
+ {k:'a',text:'Visitors are escorted.'},
+ {k:'b',text:'Visitor activity is monitored.'},
+ {k:'c',text:'Audit logs of physical access are maintained.'},
+ {k:'d',text:'Physical access devices are identified.'},
+ {k:'e',text:'Physical access devices are controlled.'},
+ {k:'f',text:'Physical access devices are managed.'}]},
+{id:'SC.L1-b.1.x',domain:'SC',domainName:'System & Communications Protection',icon:'🌐',name:'Boundary Protection',statement:'Monitor, control, and protect organizational communications at the external boundaries and key internal boundaries of the information systems.',far:'FAR 52.204-21 b.1.x',nist:'NIST SP 800-171 Rev.2 §3.13.1',objectives:[
+ {k:'a',text:'The external system boundary is defined.'},
+ {k:'b',text:'Key internal system boundaries are defined.'},
+ {k:'c',text:'Communications are monitored at the external system boundary.'},
+ {k:'d',text:'Communications are monitored at key internal boundaries.'},
+ {k:'e',text:'Communications are controlled at the external system boundary.'},
+ {k:'f',text:'Communications are controlled at key internal boundaries.'},
+ {k:'g',text:'Communications are protected at the external system boundary.'},
+ {k:'h',text:'Communications are protected at key internal boundaries.'}]},
+{id:'SC.L1-b.1.xi',domain:'SC',domainName:'System & Communications Protection',icon:'🌐',name:'Public-Access System Separation',statement:'Implement subnetworks for publicly accessible system components that are physically or logically separated from internal networks.',far:'FAR 52.204-21 b.1.xi',nist:'NIST SP 800-171 Rev.2 §3.13.5',objectives:[
+ {k:'a',text:'Publicly accessible system components are identified.'},
+ {k:'b',text:'Subnetworks for publicly accessible system components are physically or logically separated from internal networks.'}]},
+{id:'SI.L1-b.1.xii',domain:'SI',domainName:'System & Information Integrity',icon:'🧬',name:'Flaw Remediation',statement:'Identify, report, and correct information and information system flaws in a timely manner.',far:'FAR 52.204-21 b.1.xii',nist:'NIST SP 800-171 Rev.2 §3.14.1',objectives:[
+ {k:'a',text:'The time within which to identify system flaws is specified.'},
+ {k:'b',text:'System flaws are identified within the specified time frame.'},
+ {k:'c',text:'The time within which to report system flaws is specified.'},
+ {k:'d',text:'System flaws are reported within the specified time frame.'},
+ {k:'e',text:'The time within which to correct system flaws is specified.'},
+ {k:'f',text:'System flaws are corrected within the specified time frame.'}]},
+{id:'SI.L1-b.1.xiii',domain:'SI',domainName:'System & Information Integrity',icon:'🧬',name:'Malicious Code Protection',statement:'Provide protection from malicious code at appropriate locations within organizational information systems.',far:'FAR 52.204-21 b.1.xiii',nist:'NIST SP 800-171 Rev.2 §3.14.2',objectives:[
+ {k:'a',text:'Designated locations for malicious code protection are identified.'},
+ {k:'b',text:'Protection from malicious code at designated locations is provided.'}]},
+{id:'SI.L1-b.1.xiv',domain:'SI',domainName:'System & Information Integrity',icon:'🧬',name:'Update Malicious Code Protection',statement:'Update malicious code protection mechanisms when new releases are available.',far:'FAR 52.204-21 b.1.xiv',nist:'NIST SP 800-171 Rev.2 §3.14.4',objectives:[
+ {k:'a',text:'Malicious code protection mechanisms are updated when new releases are available.'}]},
+{id:'SI.L1-b.1.xv',domain:'SI',domainName:'System & Information Integrity',icon:'🧬',name:'System & File Scanning',statement:'Perform periodic scans of the information system and real-time scans of files from external sources as files are downloaded, opened, or executed.',far:'FAR 52.204-21 b.1.xv',nist:'NIST SP 800-171 Rev.2 §3.14.5',objectives:[
+ {k:'a',text:'The frequency for malicious code scans is defined.'},
+ {k:'b',text:'Malicious code scans are performed with the defined frequency.'},
+ {k:'c',text:'Real-time malicious code scans of files from external sources as files are downloaded, opened, or executed are performed.'}]}
+];
+
+// Azure/M365 configuration guidance, sourced from Microsoft's Product Placemat for CMMC
+// (Preview, Sept 2024) and Technical Reference Guide for CMMC L2 (Preview, Sept 2024),
+// trimmed for a Commercial, M365/Entra-ID-only tenant (no Azure infrastructure).
+const HINTS = {
+'AC.L1-b.1.i':{coverage:'Shared Coverage',tools:['Microsoft Entra ID','Azure RBAC','Intune/Intune Suite'],
+  guidance:'Set up least-privilege role assignments in Entra ID/Azure RBAC rather than broad access. Enroll devices in Intune so device identity, not just user identity, gates access.',
+  customer:'You are responsible for authorizing access to your own systems — Microsoft provides the mechanism, not the authorization decision.'},
+'AC.L1-b.1.ii':{coverage:'Shared Coverage',tools:['Microsoft Entra ID','Azure RBAC','Privileged Identity Management (PIM)'],
+  guidance:'Use RBAC to scope exactly what each role can do, not just whether they can log in. Use PIM for admin roles so elevated access is just-in-time, not standing.',
+  customer:''},
+'AC.L1-b.1.iii':{coverage:'Shared Coverage',tools:['Microsoft Entra ID','Defender for Cloud Apps','Conditional Access'],
+  guidance:'Conditional Access location- and device-based policies are the main lever for controlling connections from external systems.',
+  customer:'You’re responsible for setting the actual terms/conditions under which external systems may connect — the tooling enforces what you decide, it doesn’t decide for you.'},
+'AC.L1-b.1.iv':{coverage:'Shared Coverage',tools:['Intune/Intune Suite','Conditional Access','Microsoft Information Protection','Microsoft 365 DLP'],
+  guidance:'Intune app protection policies stop data leaking to unmanaged destinations. Sensitivity labels + Purview DLP classify and block FCI-related content from reaching public-facing systems.',
+  customer:''},
+'IA.L1-b.1.v':{coverage:'Shared Coverage',tools:['Microsoft Entra ID','Intune/Intune Suite'],
+  guidance:'Entra ID single sign-on as the one identity source; Intune ensures devices are registered/authenticated before touching organizational resources.',
+  customer:'Uniquely identifying and authenticating your own users is on you — Microsoft gives you the identity platform.'},
+'IA.L1-b.1.vi':{coverage:'Shared Coverage',tools:['Microsoft Entra ID','Microsoft Entra Multifactor Authentication','Conditional Access'],
+  guidance:'Microsoft’s own recommendation: enable MFA through Conditional Access policies, not the legacy per-user MFA toggle.',
+  customer:'Implementing device identification/authentication before a connection is established is explicitly called out as yours to configure.'},
+'MP.L1-b.1.vii':{coverage:'Shared Coverage (thin)',tools:['BitLocker / device encryption','Intune remote wipe','Azure Key Vault'],
+  guidance:'No strong primary tool per Microsoft’s own mapping — this control is mostly procedural. BitLocker + Intune remote wipe cover the device side; paper, printers, and USB drives still need a written sanitization procedure.',
+  customer:'Microsoft’s guidance literally says "No customer responsibility" in product terms — because this is about physical/digital media sanitization, not a cloud setting.'},
+'PE.L1-b.1.viii':{coverage:'Microsoft Coverage (datacenter only)',tools:['Azure Datacenter (Microsoft-managed)'],
+  guidance:'This only covers Microsoft’s own datacenters. GS2’s office access control (locks, badges, an authorized-personnel list) is entirely on GS2 and has no Azure/M365 setting.',
+  customer:''},
+'PE.L1-b.1.ix':{coverage:'Microsoft Coverage (datacenter only)',tools:['Azure Datacenter (Microsoft-managed)'],
+  guidance:'This only covers Microsoft’s own datacenters. Visitor escort/sign-in and physical access device management at GS2’s office has no Azure/M365 setting.',
+  customer:''},
+'SC.L1-b.1.x':{coverage:'Shared Coverage',tools:['Conditional Access','Microsoft Defender for Office 365','Microsoft Defender for Endpoint','Microsoft Defender for Cloud Apps'],
+  guidance:'For an M365/Entra-only environment: Conditional Access is the identity boundary, Defender for Office 365 is the email boundary, Defender for Endpoint is the device boundary.',
+  customer:''},
+'SC.L1-b.1.xi':{coverage:'Not Applicable to this tenant',tools:[],
+  guidance:'Every tool Microsoft lists for this practice (Azure Firewall, Network Security Groups, Virtual Network, Load Balancer, Web Application Firewall) is Azure-infrastructure-only. Since GS2 has no Azure-hosted VMs or web apps, this practice has no applicable Azure/M365 control here — mark N/A in the finding above with a note explaining why, rather than leaving it unassessed.',
+  customer:'', notApplicable:true},
+'SI.L1-b.1.xii':{coverage:'Shared Coverage',tools:['Intune update rings','Microsoft Defender for Endpoint (vulnerability management)'],
+  guidance:'Intune update rings enforce how fast Windows patches deploy; Defender for Endpoint’s vulnerability management finds and reports missing patches across end-user devices.',
+  customer:'Identifying, reporting, and correcting flaws on your own resources is explicitly yours — Microsoft’s tools surface the information, they don’t remediate for you.'},
+'SI.L1-b.1.xiii':{coverage:'Shared Coverage',tools:['Microsoft Defender Antivirus','Microsoft Defender for Office 365','Defender for Cloud Apps','Defender for Endpoint'],
+  guidance:'Enable Intune tamper protection specifically — it stops malware from disabling your AV/real-time protection as a first move.',
+  customer:'Ensuring users are running anti-malware software when accessing Microsoft 365 is explicitly on you.'},
+'SI.L1-b.1.xiv':{coverage:'Shared Coverage',tools:['Defender for Endpoint','Defender for Office 365','Defender for Cloud Apps','Defender Antivirus cloud protection','Defender XDR'],
+  guidance:'Confirm signature/engine/platform updates are set to automatic in the Microsoft 365 Defender portal’s device health view — automatic is the default, the risk is someone having disabled it.',
+  customer:''},
+'SI.L1-b.1.xv':{coverage:'Shared Coverage',tools:['Defender Antivirus real-time protection','Defender for Office 365','Defender for Cloud Apps','Defender SmartScreen'],
+  guidance:'Configure real-time protection plus scheduled quick/full scans via Intune Endpoint Security policies. Defender for Office 365 covers real-time scanning of files arriving by email.',
+  customer:'Configuring the actual scan frequency and what happens on detection (block/quarantine/alert) is yours to define — Microsoft doesn’t pick these defaults for you.'}
+};
+
+function buildHintToggle(pid,key){
+  const h = HINTS[pid];
+  if(!h) return '';
+  return `<div class="hint-toggle" onclick="toggleHint('${pid}-${key}')">💡 Suggested Azure/M365 configuration</div>
+    <div class="hint-box" id="hint-${pid}-${key}" style="display:none;">${renderHintBody(h)}</div>`;
+}
+function renderHintBody(h){
+  const covClass = h.notApplicable ? 'hint-cov-na' : 'hint-cov';
+  let out = `<span class="${covClass}">${h.coverage}</span>`;
+  if(h.tools && h.tools.length){
+    out += `<div class="hint-tools">${h.tools.map(t=>`<span class="hint-tag">${t}</span>`).join('')}</div>`;
+  }
+  out += `<div class="hint-text">${h.guidance}</div>`;
+  if(h.customer) out += `<div class="hint-customer"><b>Customer responsibility:</b> ${h.customer}</div>`;
+  out += `<div class="hint-src">Source: Microsoft Product Placemat / Technical Reference Guide for CMMC (Preview, Sept 2024) — trimmed for a Commercial, M365/Entra-only tenant.</div>`;
+  return out;
+}
+function toggleHint(id){
+  const el = document.getElementById('hint-'+id);
+  if(!el) return;
+  el.style.display = (el.style.display==='none') ? 'block' : 'none';
+}
+
+// ===================== LIVE ENVIRONMENT CHECKS (Microsoft Graph) =====================
+// Fill these in after creating an Azure AD app registration in GS2's own tenant.
+// See CMMC_Tracker_Live_Check_Setup.md for exact steps. Nothing here is a secret —
+// this is a public-client SPA registration, no client secret is used or needed.
+const MSAL_CLIENT_ID = 'PASTE-YOUR-APPLICATION-CLIENT-ID-HERE';
+const MSAL_TENANT_ID = 'PASTE-YOUR-DIRECTORY-TENANT-ID-HERE';
+const GRAPH_SCOPES = [
+  'Policy.Read.All',
+  'Directory.Read.All',
+  'RoleManagement.Read.Directory',
+  'Reports.Read.All',
+  'DeviceManagementConfiguration.Read.All',
+  'DeviceManagementManagedDevices.Read.All'
+];
+
+let msalInstance = null;
+let currentAccount = null;
+
+function msalConfigured(){
+  return MSAL_CLIENT_ID && MSAL_CLIENT_ID.indexOf('PASTE-YOUR') !== 0 &&
+         MSAL_TENANT_ID && MSAL_TENANT_ID.indexOf('PASTE-YOUR') !== 0;
+}
+
+function initMsal(){
+  if(msalInstance) return msalInstance;
+  msalInstance = new msal.PublicClientApplication({
+    auth:{
+      clientId: MSAL_CLIENT_ID,
+      authority: 'https://login.microsoftonline.com/'+MSAL_TENANT_ID,
+      redirectUri: window.location.origin + window.location.pathname
+    },
+    cache:{ cacheLocation:'sessionStorage' }
+  });
+  return msalInstance;
+}
+
+async function connectMicrosoft(){
+  if(!msalConfigured()){
+    alert('This tracker isn\'t wired up to your tenant yet.\n\nAsk whoever manages your Microsoft 365/Entra ID tenant to complete the app registration steps in CMMC_Tracker_Live_Check_Setup.md, then paste the Application (client) ID and Directory (tenant) ID into the MSAL_CLIENT_ID / MSAL_TENANT_ID constants near the top of this file\'s <script> section.');
+    return;
+  }
+  try{
+    initMsal();
+    const resp = await msalInstance.loginPopup({ scopes: GRAPH_SCOPES });
+    currentAccount = resp.account;
+    setConnectUI(true, 'Connected as '+currentAccount.username);
+  }catch(err){
+    setConnectUI(false, 'Sign-in failed: '+(err && err.message ? err.message : err), true);
+  }
+}
+
+function disconnectMicrosoft(){
+  currentAccount = null;
+  liveResults = {};
+  try{ if(msalInstance) msalInstance.clearCache && msalInstance.clearCache(); }catch(e){}
+  setConnectUI(false);
+  refreshAllLiveBoxes();
+}
+
+function setConnectUI(connected, message, isError){
+  const status = document.getElementById('connectStatus');
+  const btn = document.getElementById('connectBtn');
+  const runBtn = document.getElementById('runChecksBtn');
+  const disBtn = document.getElementById('disconnectBtn');
+  if(connected){
+    status.className = 'connect-status on';
+    status.textContent = '✅ '+(message||'Connected');
+    btn.style.display = 'none';
+    runBtn.style.display = 'inline-flex';
+    disBtn.style.display = 'inline-flex';
+  }else{
+    status.className = 'connect-status'+(isError?' err':' off');
+    status.textContent = isError ? ('❌ '+message) : '🔌 Not connected';
+    btn.style.display = 'inline-flex';
+    runBtn.style.display = 'none';
+    disBtn.style.display = 'none';
+  }
+}
+
+async function getGraphToken(){
+  if(!currentAccount) throw new Error('Not signed in');
+  try{
+    const res = await msalInstance.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: currentAccount });
+    return res.accessToken;
+  }catch(e){
+    const res = await msalInstance.acquireTokenPopup({ scopes: GRAPH_SCOPES });
+    return res.accessToken;
+  }
+}
+
+async function graphGet(path){
+  const token = await getGraphToken();
+  const res = await fetch('https://graph.microsoft.com/v1.0'+path, { headers:{ Authorization:'Bearer '+token } });
+  if(!res.ok){
+    let bodyText = '';
+    try{ bodyText = (await res.json()).error?.message || ''; }catch(e){}
+    throw new Error(res.status+' '+res.statusText+(bodyText?(' — '+bodyText):''));
+  }
+  return res.json();
+}
+
+// Each entry keys to a Level 1 practice ID. One live signal per practice (Microsoft's
+// own control mapping doesn't break down finer than practice-level either — see the
+// hints above). Every check is read-only and returns a status to review, never an
+// automatic Met/Not Met.
+let liveResults = {};
+
+const LIVE_CHECKS = {
+'AC.L1-b.1.ii': { label:'Global Administrator count', run: async ()=>{
+  const roles = await graphGet('/directoryRoles');
+  const ga = (roles.value||[]).find(r=>r.displayName==='Global Administrator');
+  if(!ga) return {status:'review', detail:'No activated "Global Administrator" directory role found (unusual — may mean no one has ever been assigned it, or it hasn\'t been activated in this tenant).'};
+  const members = await graphGet('/directoryRoles/'+ga.id+'/members?$select=userPrincipalName,displayName');
+  const names = (members.value||[]).map(m=>m.userPrincipalName||m.displayName).filter(Boolean);
+  const status = names.length<=4 ? 'good' : 'review';
+  return {status, detail:'Global Administrators ('+names.length+'): '+(names.join(', ')||'none')+(names.length>4?'\n\nMore than 4 standing Global Admins is usually a least-privilege finding worth explaining — consider Privileged Identity Management (PIM) for just-in-time elevation instead.':'')};
+}},
+'AC.L1-b.1.iii': { label:'Guest invite policy + legacy auth blocking', run: async ()=>{
+  const authPolicy = await graphGet('/policies/authorizationPolicy');
+  const allowInvites = (authPolicy.value ? authPolicy.value[0] : authPolicy).allowInvitesFrom;
+  let ca = {value:[]};
+  try{ ca = await graphGet('/identity/conditionalAccess/policies'); }catch(e){ /* Policy.Read.All may not be consented */ }
+  const legacyBlocked = (ca.value||[]).some(p=> p.state==='enabled' && p.grantControls && (p.grantControls.builtInControls||[]).includes('block') && p.conditions && p.conditions.clientAppTypes && (p.conditions.clientAppTypes.includes('other')||p.conditions.clientAppTypes.includes('exchangeActiveSync')));
+  const status = legacyBlocked ? 'good' : 'review';
+  return {status, detail:'Guest invite setting: '+allowInvites+'.\nLegacy authentication blocking Conditional Access policy found and enabled: '+(legacyBlocked?'Yes':'No — this is one of the most common gaps.')};
+}},
+'IA.L1-b.1.v': { label:'Active user account inventory', run: async ()=>{
+  const users = await graphGet('/users?$select=userPrincipalName,accountEnabled&$top=999');
+  const list = users.value||[];
+  const enabled = list.filter(u=>u.accountEnabled).length;
+  return {status:'good', detail:'Entra ID directory has '+list.length+' user accounts ('+enabled+' enabled). This just confirms Entra ID is your identity source — it can\'t confirm there are no shared/generic logins outside Entra ID, which needs a human check.'};
+}},
+'IA.L1-b.1.vi': { label:'MFA enforcement (Conditional Access + registration report)', run: async ()=>{
+  let ca = {value:[]};
+  try{ ca = await graphGet('/identity/conditionalAccess/policies'); }catch(e){}
+  const mfaPolicy = (ca.value||[]).some(p=> p.state==='enabled' && p.grantControls && (p.grantControls.builtInControls||[]).includes('mfa'));
+  let regDetail = '';
+  let regStatus = mfaPolicy ? 'good' : 'review';
+  try{
+    const reg = await graphGet('/reports/authenticationMethods/userRegistrationDetails?$top=999');
+    const list = reg.value||[];
+    const registered = list.filter(u=>u.isMfaRegistered).length;
+    const notRegistered = list.filter(u=>!u.isMfaRegistered).map(u=>u.userPrincipalName).slice(0,5);
+    regDetail = '\nMFA registration: '+registered+'/'+list.length+' users registered for MFA.'+(notRegistered.length?('\nNot registered (first 5): '+notRegistered.join(', ')):'');
+    if(notRegistered.length) regStatus = 'review';
+  }catch(e){ regDetail = '\n(Could not pull MFA registration report — check Reports.Read.All consent.)'; }
+  return {status:regStatus, detail:'Conditional Access policy enforcing MFA found and enabled: '+(mfaPolicy?'Yes':'No.')+regDetail};
+}},
+'MP.L1-b.1.vii': { label:'Device encryption status (Intune)', run: async ()=>{
+  const devices = await graphGet('/deviceManagement/managedDevices?$select=deviceName,isEncrypted,complianceState&$top=999');
+  const list = devices.value||[];
+  if(!list.length) return {status:'review', detail:'No Intune-managed devices returned. Either no devices are enrolled, or Intune isn\'t licensed/configured — this can\'t confirm media sanitization practices either way, which stay manual.'};
+  const encrypted = list.filter(d=>d.isEncrypted).length;
+  const status = encrypted===list.length ? 'good' : 'review';
+  return {status, detail:'Intune-managed devices: '+encrypted+'/'+list.length+' report disk encryption enabled. This only speaks to cryptographic erasure readiness — paper/printer/USB sanitization still needs a manual answer.'};
+}},
+'SI.L1-b.1.xii': { label:'Device compliance (patch/flaw remediation signal)', run: async ()=>{
+  const devices = await graphGet('/deviceManagement/managedDevices?$select=deviceName,complianceState&$top=999');
+  const list = devices.value||[];
+  if(!list.length) return {status:'review', detail:'No Intune-managed devices returned — either none are enrolled or Intune isn\'t licensed/configured.'};
+  const compliant = list.filter(d=>d.complianceState==='compliant').length;
+  const status = compliant===list.length ? 'good' : 'review';
+  return {status, detail:'Intune device compliance: '+compliant+'/'+list.length+' devices report "compliant". Non-compliant devices are often behind on updates — treat this as a starting point, not a full vulnerability scan.'};
+}}
+};
+
+function buildLiveToggle(pid,key){
+  if(!LIVE_CHECKS[pid]) return '';
+  return `<div class="live-toggle" onclick="toggleLive('${pid}-${key}')">🔌 Live check: ${LIVE_CHECKS[pid].label}</div>
+    <div class="live-box pending" id="live-${pid}-${key}">Not run yet. Connect above, then click "Run Live Checks".</div>`;
+}
+function toggleLive(id){
+  const el = document.getElementById('live-'+id);
+  if(!el) return;
+  el.style.display = (el.style.display==='none'||!el.style.display) ? 'block' : 'none';
+}
+
+async function runLiveChecks(){
+  if(!currentAccount){ alert('Connect to Microsoft 365 first.'); return; }
+  const runBtn = document.getElementById('runChecksBtn');
+  runBtn.disabled = true; runBtn.textContent = '⏳ Running…';
+  for(const pid of Object.keys(LIVE_CHECKS)){
+    let result;
+    try{
+      result = await LIVE_CHECKS[pid].run();
+    }catch(err){
+      result = { status:'error', detail:'Could not complete this check: '+(err && err.message ? err.message : err)+'\n\nThis usually means the signed-in account lacks permission, or the required Graph permission wasn\'t granted admin consent — see CMMC_Tracker_Live_Check_Setup.md.' };
+    }
+    liveResults[pid] = result;
+  }
+  refreshAllLiveBoxes();
+  runBtn.disabled = false; runBtn.textContent = '▶ Run Live Checks';
+}
+
+function refreshAllLiveBoxes(){
+  Object.keys(LIVE_CHECKS).forEach(pid=>{
+    const p = PRACTICES.find(x=>x.id===pid);
+    if(!p) return;
+    const result = liveResults[pid];
+    p.objectives.forEach(o=>{
+      const box = document.getElementById('live-'+pid+'-'+o.k);
+      if(!box) return;
+      if(!result){
+        box.className = 'live-box pending';
+        box.textContent = 'Not run yet. Connect above, then click "Run Live Checks".';
+        return;
+      }
+      box.className = 'live-box '+(result.status==='good'?'good':result.status==='error'?'error':'review');
+      const tagLabel = result.status==='good' ? '✅ Looks good' : result.status==='error' ? '❌ Check failed' : '⚠ Review needed';
+      box.innerHTML = `<span class="live-status-tag" style="background:rgba(255,255,255,.6);">${tagLabel}</span>
+        <div class="live-detail">${escapeHtml(result.detail)}</div>
+        <button class="live-apply-btn" onclick="applyLiveEvidence('${pid}','${o.k}')">Insert into evidence notes</button>`;
+    });
+  });
+}
+
+function applyLiveEvidence(pid,key){
+  const result = liveResults[pid];
+  if(!result) return;
+  const existing = getObj(pid,key).note || '';
+  const stamp = '[Live check, '+new Date().toLocaleString()+']: '+result.detail;
+  const updated = existing ? (existing+'\n\n'+stamp) : stamp;
+  setObjective(pid,key,'note',updated);
+  // reflect into the visible textarea for this objective
+  const row = document.querySelector(`#details-${pid} textarea[oninput*="'${pid}','${key}'"]`);
+  if(row) row.value = updated;
+  alert('Added to evidence notes. Review it, then set the finding (Met / Not Met / N/A) yourself — this tool never sets that for you.');
+}
+
+const TOTAL_OBJ = PRACTICES.reduce((n,p)=>n+p.objectives.length,0);
+const STORAGE_KEY = 'cmmc_l1_tracker_v1';
+
+function defaultState(){ return {org:'',scope:'',assessor:'',date:'',obj:{}}; }
+let state = loadState();
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return Object.assign(defaultState(), JSON.parse(raw));
+  }catch(e){}
+  return defaultState();
+}
+function saveState(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){} }
+
+function getObj(pid,key){ return (state.obj[pid] && state.obj[pid][key]) || {status:'',note:''}; }
+function setObjective(pid,key,field,value){
+  state.obj[pid] = state.obj[pid] || {};
+  state.obj[pid][key] = state.obj[pid][key] || {status:'',note:''};
+  state.obj[pid][key][field] = value;
+  saveState();
+  refreshPracticeBadge(pid);
+  refreshWarning(pid,key);
+  refreshDashboard();
+}
+
+function practiceStatus(p){
+  let anyUnset=false, anyNotMet=false;
+  for(const o of p.objectives){
+    const st = getObj(p.id,o.k).status;
+    if(!st) anyUnset = true; else if(st==='notmet') anyNotMet = true;
+  }
+  if(anyNotMet) return 'NOTMET';
+  if(anyUnset) return 'INCOMPLETE';
+  return 'MET';
+}
+
+function overallStatus(){
+  if(!state.scope || !state.scope.trim()) return 'NOSCOPE';
+  const statuses = PRACTICES.map(practiceStatus);
+  if(statuses.every(s=>s==='MET')) return 'COMPLIANT';
+  if(statuses.some(s=>s==='NOTMET')) return 'NONCOMPLIANT_HASFAIL';
+  return 'INPROGRESS';
+}
+
+const STATUS_LABEL = {
+  COMPLIANT:'Final Level 1 (Self) — ready for SPRS',
+  NONCOMPLIANT_HASFAIL:'Not compliant',
+  INPROGRESS:'In progress',
+  NOSCOPE:'Define scope to begin'
+};
+
+function domainList(){
+  const seen={}, out=[];
+  PRACTICES.forEach(p=>{ if(!seen[p.domain]){ seen[p.domain]=true; out.push({code:p.domain,name:p.domainName,icon:p.icon}); }});
+  return out;
+}
+
+function renderPractices(){
+  let html = '<div class="domain-grid">';
+  domainList().forEach(d=>{
+    const items = PRACTICES.filter(p=>p.domain===d.code);
+    html += `<div class="domain-card">
+      <div class="domain-card-head">
+        <div class="left">
+          <div class="domain-icon">${d.icon}</div>
+          <div>
+            <div class="domain-title">${d.code} — ${d.name}</div>
+            <div class="domain-sub">${items.length} practice${items.length>1?'s':''}</div>
+          </div>
+        </div>
+        <div class="ring ring-sm" id="ring-${d.code}"><div class="inner" id="ringtext-${d.code}">0%</div></div>
+      </div>`;
+    items.forEach(p=>{
+      html += `<details class="practice" id="details-${p.id}"><summary>
+        <div class="p-summary-row">
+          <div>
+            <div class="p-id-line">${p.id}</div>
+            <div class="p-name-line">${p.name}</div>
+          </div>
+          <span class="badge-sm badge-INCOMPLETE" id="badge-${p.id}">INCOMPLETE</span>
+        </div>
+        <div class="chip-row" id="chiprow-${p.id}">
+          ${p.objectives.map(o=>`<div class="chip" id="chip-${p.id}-${o.k}" title="[${o.k}] ${o.text}">${o.k}</div>`).join('')}
+        </div>
+      </summary>
+      <div class="practice-body">
+        <div class="statement">${p.statement}</div>`;
+      p.objectives.forEach(o=>{
+        const cur = getObj(p.id,o.k);
+        html += `<div class="obj-row">
+          <div class="obj-text"><span class="obj-key">[${o.k}]</span>${o.text}</div>
+          <div class="radios">
+            ${['met','notmet','na'].map(v=>`<label><input type="radio" name="${p.id}-${o.k}" value="${v}" ${cur.status===v?'checked':''} onchange="setObjective('${p.id}','${o.k}','status',this.value)"> ${v==='met'?'Met':v==='notmet'?'Not Met':'N/A'}</label>`).join('')}
+          </div>
+          <textarea placeholder="Evidence / notes (recommended for MET, required for NOT MET or N/A)" rows="1" oninput="setObjective('${p.id}','${o.k}','note',this.value)">${escapeHtml(cur.note)}</textarea>
+          <div class="warn" id="warn-${p.id}-${o.k}">⚠ Best practice: document the evidence supporting this finding (32 CFR §170.24).</div>
+          ${buildHintToggle(p.id,o.k)}
+          ${buildLiveToggle(p.id,o.k)}
+        </div>`;
+      });
+      html += `<div class="refs">Key references: ${p.far} · ${p.nist}</div>
+      </div></details>`;
+    });
+    html += `</div>`;
+  });
+  html += '</div>';
+  document.getElementById('panelL1').innerHTML = html;
+}
+
+function setRing(elIdRing, elIdText, pct, color){
+  const ring = document.getElementById(elIdRing);
+  const text = document.getElementById(elIdText);
+  if(ring) ring.style.background = `conic-gradient(${color} ${pct}%, #e5e9f0 0)`;
+  if(text) text.textContent = pct+'%';
+}
+
+function refreshPracticeBadge(pid){
+  const p = PRACTICES.find(x=>x.id===pid);
+  const st = practiceStatus(p);
+  const el = document.getElementById('badge-'+pid);
+  if(el){ el.textContent = st==='NOTMET'?'NOT MET':st; el.className = 'badge-sm badge-'+st; }
+  p.objectives.forEach(o=>{
+    const chip = document.getElementById('chip-'+pid+'-'+o.k);
+    if(!chip) return;
+    const cur = getObj(pid,o.k).status;
+    chip.className = 'chip'+(cur?(' '+cur):'');
+  });
+  const items = PRACTICES.filter(x=>x.domain===p.domain);
+  const met = items.filter(x=>practiceStatus(x)==='MET').length;
+  const pct = Math.round(met/items.length*100);
+  setRing('ring-'+p.domain,'ringtext-'+p.domain,pct,'var(--met)');
+}
+
+function refreshWarning(pid,key){
+  const cur = getObj(pid,key);
+  const el = document.getElementById('warn-'+pid+'-'+key);
+  if(!el) return;
+  const needsNote = !!cur.status && !(cur.note||'').trim();
+  el.style.display = needsNote ? 'block' : 'none';
+}
+
+function refreshAllBadgesAndChips(){
+  PRACTICES.forEach(p=>refreshPracticeBadge(p.id));
+  PRACTICES.forEach(p=>p.objectives.forEach(o=>refreshWarning(p.id,o.k)));
+}
+
+function refreshDashboard(){
+  const os = overallStatus();
+  const badge = document.getElementById('overallBadge');
+  badge.className = 'status-badge status-'+os;
+  badge.textContent = STATUS_LABEL[os];
+  document.getElementById('scopeWarning').style.display = os==='NOSCOPE' ? 'block' : 'none';
+
+  const statuses = PRACTICES.map(p=>({id:p.id,name:p.name,st:practiceStatus(p)}));
+  const met = statuses.filter(s=>s.st==='MET').length;
+  const notmet = statuses.filter(s=>s.st==='NOTMET').length;
+
+  let objAnswered = 0;
+  PRACTICES.forEach(p=>p.objectives.forEach(o=>{ if(getObj(p.id,o.k).status) objAnswered++; }));
+
+  document.getElementById('cntMet').textContent = met+'/15';
+  document.getElementById('cntNotMet').textContent = notmet;
+  document.getElementById('cntObj').textContent = objAnswered+'/'+TOTAL_OBJ;
+
+  const overallPct = Math.round(objAnswered/TOTAL_OBJ*100);
+  const ringColor = notmet>0 ? 'var(--notmet)' : 'var(--met)';
+  setRing('overallRing','overallRingText',overallPct,ringColor);
+
+  const notMetList = document.getElementById('notMetList');
+  const failing = statuses.filter(s=>s.st==='NOTMET');
+  notMetList.innerHTML = failing.length ? '<div style="font-weight:700;margin-bottom:4px;">Practices needing remediation:</div>'+failing.map(s=>`<li>${s.id} — ${s.name}</li>`).join('') : '';
+
+  const nav2 = document.getElementById('navL2');
+  nav2.textContent = os==='COMPLIANT' ? 'Level 2 (unlocked)' : 'Level 2';
+}
+
+function switchTab(tab){
+  document.getElementById('panelL1').style.display = tab==='L1' ? 'block' : 'none';
+  document.getElementById('panelL2').style.display = tab==='L2' ? 'block' : 'none';
+  document.getElementById('navL1').classList.toggle('active', tab==='L1');
+  document.getElementById('navL2').classList.toggle('active', tab==='L2');
+}
+
+function toggleInfoPanel(){ document.getElementById('infoPanel').classList.toggle('open'); }
+
+function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function bindHeaderFields(){
+  const orgEl=document.getElementById('orgName'), dateEl=document.getElementById('assessDate'),
+        scopeEl=document.getElementById('scopeText'), assessorEl=document.getElementById('assessorName');
+  orgEl.value = state.org; dateEl.value = state.date; scopeEl.value = state.scope; assessorEl.value = state.assessor;
+  orgEl.oninput = e=>{ state.org=e.target.value; saveState(); };
+  dateEl.oninput = e=>{ state.date=e.target.value; saveState(); };
+  assessorEl.oninput = e=>{ state.assessor=e.target.value; saveState(); };
+  scopeEl.oninput = e=>{ state.scope=e.target.value; saveState(); refreshDashboard(); };
+  if(!state.scope || !state.scope.trim()) document.getElementById('infoPanel').classList.add('open');
+}
+
+function exportJSON(){
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'CMMC-L1-progress-'+(state.date||'undated')+'.json';
+  a.click();
+}
+
+function importJSON(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{
+    try{
+      const parsed = JSON.parse(e.target.result);
+      state = Object.assign(defaultState(), parsed);
+      saveState();
+      bindHeaderFields();
+      refreshAllBadgesAndChips();
+      refreshDashboard();
+      alert('Progress loaded.');
+    }catch(err){ alert('Could not read that file: '+err.message); }
+  };
+  reader.readAsText(file);
+  evt.target.value = '';
+}
+
+function exportReport(){
+  const os = overallStatus();
+  let lines = [];
+  lines.push('CMMC LEVEL 1 SELF-ASSESSMENT SUMMARY');
+  lines.push('Organization: '+(state.org||'(not specified)'));
+  lines.push('Assessment date: '+(state.date||'(not specified)'));
+  lines.push('Assessor/preparer: '+(state.assessor||'(not specified)'));
+  lines.push('');
+  lines.push('CMMC Assessment Scope (32 CFR §170.19):');
+  lines.push(state.scope || '(not specified — required before self-assessment is valid)');
+  lines.push('');
+  lines.push('Overall status: '+STATUS_LABEL[os]);
+  lines.push('');
+  PRACTICES.forEach(p=>{
+    const st = practiceStatus(p);
+    lines.push('--------------------------------------------------');
+    lines.push(p.id+' — '+p.name+' : '+(st==='NOTMET'?'NOT MET':st));
+    lines.push('Requirement: '+p.statement);
+    p.objectives.forEach(o=>{
+      const cur = getObj(p.id,o.k);
+      const label = cur.status==='met'?'MET':cur.status==='notmet'?'NOT MET':cur.status==='na'?'N/A':'(not assessed)';
+      lines.push('  ['+o.k+'] '+label+' — '+o.text);
+      if(cur.note) lines.push('      Evidence/notes: '+cur.note);
+    });
+    lines.push('References: '+p.far+' · '+p.nist);
+  });
+  lines.push('--------------------------------------------------');
+  lines.push('Generated by CMMC Compliance Tracker.');
+  const blob = new Blob([lines.join('\n')],{type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'CMMC-L1-report-'+(state.date||'undated')+'.txt';
+  a.click();
+}
+
+function exportPDF(){
+  if(!(window.jspdf && window.jspdf.jsPDF)){
+    alert('The PDF library did not load (no internet connection?). Use "Export Report (.txt)" instead, or reopen this page online and try again.');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt',format:'letter'});
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const marginX = 44;
+  const bottomLimit = pageH - 44;
+  let y = 54;
+  let pageNum = 1;
+
+  function footer(){
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,150);
+    doc.text('CMMC Level 1 Self-Assessment Report — page '+pageNum, marginX, pageH-24);
+  }
+  function newPage(){ footer(); doc.addPage(); pageNum++; y=54; }
+  function ensureSpace(h){ if(y+h > bottomLimit){ newPage(); } }
+  function setColor(c){ doc.setTextColor(c[0],c[1],c[2]); }
+  function addTitle(text,size){
+    ensureSpace(size+12);
+    doc.setFont('helvetica','bold'); doc.setFontSize(size); setColor([13,27,62]);
+    doc.text(text,marginX,y); y+=size+10;
+  }
+  function addLine(text,opts){
+    opts = opts||{};
+    const size = opts.size||10, bold = !!opts.bold, color = opts.color||[30,34,52], indent = opts.indent||0;
+    doc.setFont('helvetica', bold?'bold':'normal'); doc.setFontSize(size); setColor(color);
+    const maxWidth = pageW - marginX*2 - indent;
+    const lines = doc.splitTextToSize(String(text), maxWidth);
+    lines.forEach(l=>{
+      ensureSpace(size+5);
+      doc.text(l, marginX+indent, y);
+      y += size+5;
+    });
+  }
+  function addRule(){
+    ensureSpace(12);
+    doc.setDrawColor(224,227,233); doc.line(marginX,y,pageW-marginX,y); y+=14;
+  }
+
+  const os = overallStatus();
+  const overallColor = os==='COMPLIANT' ? [26,158,92] : os==='NONCOMPLIANT_HASFAIL' ? [214,69,69] : [90,96,110];
+
+  addTitle('CMMC Level 1 Self-Assessment Report',17);
+  addLine('Organization: '+(state.org||'(not specified)'));
+  addLine('Assessment date: '+(state.date||'(not specified)'));
+  addLine('Assessor / preparer: '+(state.assessor||'(not specified)'));
+  y += 4;
+  addLine('CMMC Assessment Scope (32 CFR §170.19):',{bold:true});
+  addLine(state.scope || '(not specified — required before this self-assessment is valid)');
+  y += 4;
+  addLine('Overall status: '+STATUS_LABEL[os],{size:12,bold:true,color:overallColor});
+  addRule();
+
+  PRACTICES.forEach(p=>{
+    const st = practiceStatus(p);
+    const color = st==='MET' ? [26,158,92] : st==='NOTMET' ? [214,69,69] : [130,136,150];
+    ensureSpace(24);
+    addLine(p.id+'  —  '+p.name+'   ['+(st==='NOTMET'?'NOT MET':st)+']',{size:11.5,bold:true,color});
+    addLine('Requirement: '+p.statement,{size:9,color:[80,86,100]});
+    p.objectives.forEach(o=>{
+      const cur = getObj(p.id,o.k);
+      const label = cur.status==='met'?'MET':cur.status==='notmet'?'NOT MET':cur.status==='na'?'N/A':'(not assessed)';
+      const lc = cur.status==='met'?[26,158,92]:cur.status==='notmet'?[214,69,69]:cur.status==='na'?[59,111,214]:[160,164,175];
+      addLine('['+o.k+'] '+label+' — '+o.text,{size:9,indent:12,color:lc});
+      if(cur.note) addLine('Evidence/notes: '+cur.note,{size:8.5,indent:24,color:[100,104,116]});
+    });
+    addLine('References: '+p.far+' · '+p.nist,{size:8,color:[150,154,165]});
+    addRule();
+  });
+
+  footer();
+  doc.save('CMMC-L1-report-'+(state.date||'undated')+'.pdf');
+}
+
+function resetAll(){
+  if(!confirm('This will erase all tracked progress. Continue?')) return;
+  state = defaultState();
+  saveState();
+  bindHeaderFields();
+  refreshAllBadgesAndChips();
+  refreshDashboard();
+}
+
+renderPractices();
+bindHeaderFields();
+refreshAllBadgesAndChips();
+refreshDashboard();
+</script>
+</body>
+</html>
