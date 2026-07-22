@@ -5,33 +5,42 @@
 <title>CMMC Compliance Tracker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
+  @font-face{font-family:'Codec Pro';src:url('fonts/CodecPro-Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap;}
+  @font-face{font-family:'Codec Pro';src:url('fonts/CodecPro-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap;}
+  @font-face{font-family:'Montserrat';src:url('fonts/Montserrat-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap;}
+  @font-face{font-family:'Montserrat';src:url('fonts/Montserrat-SemiBold.ttf') format('truetype');font-weight:600;font-style:normal;font-display:swap;}
+  @font-face{font-family:'Montserrat';src:url('fonts/Montserrat-Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap;}
   :root{
-    --navy:#0d1b3e; --navy-dark:#081029; --green:#1a9e5c; --green-dark:#0f7a45;
+    --navy:#021432; --navy-dark:#010a1f;
+    --brand-purple:#7C2EC9; --brand-purple-dark:#5f2299; --brand-indigo:#3F46D0; --brand-blue:#3C5BFF; --brand-magenta:#DB0EB7;
+    --green:#1a9e5c; --green-dark:#0f7a45;
     --met:#1a9e5c; --met-bg:#e4f6ec;
     --notmet:#d64545; --notmet-bg:#fbe9e9;
-    --na:#3b6fd6; --na-bg:#e8eefb;
+    --na:#3C5BFF; --na-bg:#eaeeff;
     --unset:#c3c9d4; --unset-bg:#f1f3f6;
     --border:#e1e5ec; --bg:#f4f6fa; --card:#ffffff; --text:#1c2434; --muted:#7a8291;
   }
   *{box-sizing:border-box;}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:0;}
+  body{font-family:'Montserrat',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:0;}
+  h1,h2,h3,.brand h1,.toolbar .title,.domain-title,.p-name-line{font-family:'Codec Pro','Montserrat',-apple-system,sans-serif;}
 
-  .topbar{background:var(--navy);color:#fff;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .topbar{background:linear-gradient(120deg,var(--navy) 55%,var(--navy-dark));color:#fff;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:3px solid var(--brand-purple);}
   .brand{display:flex;align-items:center;gap:12px;}
-  .brand .icon{width:36px;height:36px;border-radius:9px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:18px;}
-  .brand h1{margin:0;font-size:17px;font-weight:700;}
-  .brand .sub{color:#aeb8d6;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;}
+  .brand .icon{width:38px;height:38px;border-radius:9px;background:rgba(124,46,201,.25);display:flex;align-items:center;justify-content:center;padding:6px;flex-shrink:0;}
+  .brand .icon svg{width:100%;height:100%;display:block;}
+  .brand h1{margin:0;font-size:17px;font-weight:700;letter-spacing:.01em;}
+  .brand .sub{color:#b9a8e0;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;}
   .navlinks{display:flex;gap:4px;}
   .navlinks .nl{padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;color:#c7cfe6;cursor:pointer;}
-  .navlinks .nl.active{background:rgba(255,255,255,.12);color:#fff;}
+  .navlinks .nl.active{background:var(--brand-purple);color:#fff;}
   .navlinks .nl.locked{opacity:.55;cursor:not-allowed;}
 
   .toolbar{background:#fff;border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
   .toolbar .title{font-weight:700;font-size:14.5px;display:flex;align-items:center;gap:8px;color:var(--navy);}
   .btnbar{display:flex;gap:8px;flex-wrap:wrap;}
   button, .pillbtn{cursor:pointer;border:1px solid var(--border);border-radius:20px;padding:8px 16px;font-size:12.5px;font-weight:700;font-family:inherit;background:#fff;color:var(--text);display:inline-flex;align-items:center;gap:6px;}
-  .pillbtn.primary{background:var(--green);border-color:var(--green);color:#fff;}
-  .pillbtn.primary:hover{background:var(--green-dark);}
+  .pillbtn.primary{background:var(--brand-purple);border-color:var(--brand-purple);color:#fff;}
+  .pillbtn.primary:hover{background:var(--brand-purple-dark);border-color:var(--brand-purple-dark);}
   .pillbtn:hover{background:#f4f6fa;}
   .pillbtn.danger{color:var(--notmet);border-color:#f2c6c6;}
   input[type=file]{display:none;}
@@ -69,7 +78,7 @@
   .domain-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
   .domain-card-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;}
   .domain-card-head .left{display:flex;gap:10px;align-items:flex-start;}
-  .domain-icon{width:38px;height:38px;border-radius:9px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+  .domain-icon{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,var(--brand-purple),var(--brand-indigo));color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
   .domain-title{font-weight:800;font-size:13.5px;color:var(--navy);letter-spacing:.02em;}
   .domain-sub{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-top:2px;}
   .ring-sm{width:44px;height:44px;}
@@ -143,10 +152,10 @@
 
 <div class="topbar">
   <div class="brand">
-    <div class="icon">🛡️</div>
+    <div class="icon"><svg viewBox="0 0 861 925" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M773.382 211.842C578.672 119.876 354.419 114.981 156.308 197.649C182.712 323.999 220.074 417.258 269.856 498.501C316.405 574.463 375.153 642.212 450.866 718.298C464.168 700.81 479.555 679.842 495.994 656.055C532.143 603.752 572.587 538.964 607.146 468.437H523.074H453.542V329.376H523.074H712.875H812.101C810.14 335.505 808.084 341.767 805.93 348.164L778.046 423.144C776.051 428.507 774.013 433.848 771.935 439.166C762.223 462.976 751.32 488.229 739.064 515.023C698.807 599.836 651.21 676.065 610.39 735.125C582.656 775.25 557.64 808.039 539.46 830.909C530.365 842.353 522.957 851.343 517.752 857.556C515.147 860.661 513.091 863.077 511.644 864.761C511.219 865.253 510.847 865.686 510.532 866.054L509.945 866.73C509.742 866.967 509.577 867.155 509.453 867.294L509.303 867.471L509.25 867.531L509.227 867.557C509.22 867.565 509.209 867.576 456.933 821.731L509.209 867.576L472.301 909.667C468.505 913.666 464.754 917.552 461.059 921.329L464.209 918.894L461.131 922.404L408.655 871.771C304.396 771.18 218.115 680.218 151.285 571.159C83.8219 461.063 38.1895 335.971 9.18593 168.342L0 115.251L49.1168 93.1033L79.3753 79.4587C319.364 -28.7603 594.732 -26.3328 832.773 86.1002L859.386 98.6692C858.063 106.941 856.925 116.416 855.617 127.291C852.287 154.991 847.863 191.771 836.569 240.87L836.253 241.538L773.382 211.842Z" fill="white"/></svg></div>
     <div>
       <h1>CMMC Compliance Tracker</h1>
-      <div class="sub">DoD Cybersecurity Maturity Model Certification</div>
+      <div class="sub">Guardian Strategic Solutions &middot; DoD Cybersecurity Maturity Model Certification</div>
     </div>
   </div>
   <div class="navlinks">
@@ -208,7 +217,7 @@
   <div class="connectcard">
     <div class="connect-left">
       <div class="connect-status off" id="connectStatus">🔌 Not connected</div><br>
-      <span id="connectDetail"><b>Live environment checks</b> read real settings from your Microsoft 365/Entra ID tenant via Microsoft Graph (read-only) to back up specific objectives below with actual evidence — they're signals to review, not an automatic Met/Not Met. When connected, your checklist progress auto-saves to a shared file in <b>Guardian / Shared Documents / CMMC / Current</b> as you work (a few seconds after each change), and reloads from there — with a confirmation first if it would overwrite unsaved local changes — whenever you connect, including automatically on page load if this browser already has a session. Every export (PDF / .txt / .json) is separately saved there too, alongside the usual local download. Requires a one-time Azure AD app registration in your tenant; see <b>CMMC_Tracker_Live_Check_Setup.md</b>. Nothing you sign into here ever passes through anyone but Microsoft and your own browser.</span><br>
+      <span id="connectDetail"><b>Live environment checks</b> read real settings from your Microsoft 365/Entra ID tenant via Microsoft Graph (read-only) to back up specific objectives below with actual evidence — they're signals to review, not an automatic Met/Not Met. When connected, your checklist progress auto-saves to a shared file in <b>Guardian / Shared Documents / CMMC / Current</b> as you work (a few seconds after each change), and reloads from there — with a confirmation first if it would overwrite unsaved local changes — whenever you connect, including automatically on page load if this browser already has a session. Every export (PDF / .txt / .json) is saved separately to <b>Guardian / Shared Documents / CMMC / Build</b>, alongside the usual local download. Requires a one-time Azure AD app registration in your tenant; see <b>CMMC_Tracker_Live_Check_Setup.md</b>. Nothing you sign into here ever passes through anyone but Microsoft and your own browser.</span><br>
       <span id="sharepointStatus" style="display:none;font-size:11.5px;font-weight:700;"></span>
     </div>
     <div class="connect-right">
@@ -391,11 +400,11 @@ function toggleHint(id){
 // this is a public-client SPA registration, no client secret is used or needed.
 const MSAL_CLIENT_ID = 'b112d808-e384-4097-b3c3-379dd9a31d34';
 const MSAL_TENANT_ID = '960c41ba-856c-45d8-9dc5-191fd5e083af';
-// SharePoint destination for auto-saved reports (Export PDF / .txt / .json).
-// Parsed from https://guardianstategicsolutionsll.sharepoint.com/sites/Guardian/Shared%20Documents/CMMC/Current
+// SharePoint destinations, both under https://guardianstategicsolutionsll.sharepoint.com/sites/Guardian/Shared%20Documents/
 const SHAREPOINT_HOST = 'guardianstategicsolutionsll.sharepoint.com';
 const SHAREPOINT_SITE_PATH = 'Guardian';
-const SHAREPOINT_FOLDER_PATH = 'CMMC/Current'; // relative to the site's default document library (Shared Documents)
+const SHAREPOINT_STATE_FOLDER_PATH = 'CMMC/Current'; // the live/shared progress state file lives here — unchanged
+const SHAREPOINT_BUILD_FOLDER_PATH = 'CMMC/Build';   // exported reports (PDF / .txt / .json) go here
 const SHAREPOINT_STATE_FILENAME = 'CMMC-L1-current-state.json'; // the single "current progress" file, overwritten each save
 let cachedSiteId = null;
 let syncDebounceTimer = null;
@@ -533,10 +542,10 @@ async function getSharePointSiteId(){
   return cachedSiteId;
 }
 
-async function uploadToSharePoint(filename, blob){
+async function uploadToSharePoint(filename, blob, folderPath){
   const token = await getGraphToken();
   const siteId = await getSharePointSiteId();
-  const path = SHAREPOINT_FOLDER_PATH+'/'+filename;
+  const path = (folderPath||SHAREPOINT_BUILD_FOLDER_PATH)+'/'+filename;
   const res = await fetch(
     'https://graph.microsoft.com/v1.0/sites/'+siteId+'/drive/root:/'+path+':/content',
     { method:'PUT', headers:{ Authorization:'Bearer '+token, 'Content-Type': blob.type||'application/octet-stream' }, body: blob }
@@ -549,10 +558,10 @@ async function uploadToSharePoint(filename, blob){
   return res.json();
 }
 
-async function downloadJSONFromSharePoint(filename){
+async function downloadJSONFromSharePoint(filename, folderPath){
   const token = await getGraphToken();
   const siteId = await getSharePointSiteId();
-  const path = SHAREPOINT_FOLDER_PATH+'/'+filename;
+  const path = (folderPath||SHAREPOINT_BUILD_FOLDER_PATH)+'/'+filename;
   const res = await fetch('https://graph.microsoft.com/v1.0/sites/'+siteId+'/drive/root:/'+path+':/content', { headers:{ Authorization:'Bearer '+token } });
   if(res.status===404) return null; // no file saved yet — not an error
   if(!res.ok){
@@ -570,12 +579,13 @@ function hasAnyLocalProgress(){
   );
 }
 
-// Checks CMMC/Current in SharePoint for a saved progress file and loads it.
+// Checks CMMC/Current in SharePoint (the live/shared progress file, not the Build
+// folder used for exported reports) for a saved progress file and loads it.
 // If this browser already has unsaved local progress, confirms before overwriting
 // it rather than silently replacing whatever's on screen.
 async function loadProgressFromSharePoint(promptFirst){
   try{
-    const remote = await downloadJSONFromSharePoint(SHAREPOINT_STATE_FILENAME);
+    const remote = await downloadJSONFromSharePoint(SHAREPOINT_STATE_FILENAME, SHAREPOINT_STATE_FOLDER_PATH);
     if(!remote){
       setSharePointStatus('Connected — no saved progress found yet in SharePoint (CMMC/Current). It\'ll be created the first time something is saved.', false);
       return;
@@ -605,7 +615,7 @@ async function syncProgressToSharePointNow(){
   if(!currentAccount) return;
   try{
     const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
-    await uploadToSharePoint(SHAREPOINT_STATE_FILENAME, blob);
+    await uploadToSharePoint(SHAREPOINT_STATE_FILENAME, blob, SHAREPOINT_STATE_FOLDER_PATH);
     setSharePointStatus('✅ Progress auto-saved to SharePoint ('+new Date().toLocaleTimeString()+').', false);
   }catch(err){
     setSharePointStatus('⚠ Could not auto-save progress to SharePoint ('+(err && err.message ? err.message : err)+'). Still saved locally in this browser.', true);
@@ -622,7 +632,8 @@ function setSharePointStatus(text, isError){
 
 // Every export (PDF / .txt / .json) always downloads locally first — that never
 // depends on being signed in. If connected to Microsoft 365, it *also* uploads the
-// same file to the shared CMMC/Current SharePoint folder automatically.
+// same file to the CMMC/Build SharePoint folder automatically (separate from the
+// CMMC/Current folder used for the live/shared progress state file).
 function downloadBlob(filename, blob){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -637,8 +648,8 @@ async function saveReport(filename, blob){
   }
   setSharePointStatus('📤 Saving a copy to SharePoint…', false);
   try{
-    await uploadToSharePoint(filename, blob);
-    setSharePointStatus('✅ Saved to SharePoint: CMMC/Current/'+filename, false);
+    await uploadToSharePoint(filename, blob, SHAREPOINT_BUILD_FOLDER_PATH);
+    setSharePointStatus('✅ Saved to SharePoint: CMMC/Build/'+filename, false);
   }catch(err){
     setSharePointStatus('⚠ Could not save to SharePoint ('+(err && err.message ? err.message : err)+'). Downloaded locally instead.', true);
   }
@@ -1054,7 +1065,7 @@ function exportPDF(){
   function setColor(c){ doc.setTextColor(c[0],c[1],c[2]); }
   function addTitle(text,size){
     ensureSpace(size+12);
-    doc.setFont('helvetica','bold'); doc.setFontSize(size); setColor([13,27,62]);
+    doc.setFont('helvetica','bold'); doc.setFontSize(size); setColor([124,46,201]);
     doc.text(text,marginX,y); y+=size+10;
   }
   function addLine(text,opts){
