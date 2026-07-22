@@ -208,7 +208,8 @@
   <div class="connectcard">
     <div class="connect-left">
       <div class="connect-status off" id="connectStatus">🔌 Not connected</div><br>
-      <span id="connectDetail"><b>Live environment checks</b> read real settings from your Microsoft 365/Entra ID tenant via Microsoft Graph (read-only) to back up specific objectives below with actual evidence — they're signals to review, not an automatic Met/Not Met. Requires a one-time Azure AD app registration in your tenant; see <b>CMMC_Tracker_Live_Check_Setup.md</b>. Nothing you sign into here ever passes through anyone but Microsoft and your own browser.</span>
+      <span id="connectDetail"><b>Live environment checks</b> read real settings from your Microsoft 365/Entra ID tenant via Microsoft Graph (read-only) to back up specific objectives below with actual evidence — they're signals to review, not an automatic Met/Not Met. When connected, every export (PDF / .txt / .json) is also auto-saved to <b>Guardian / Shared Documents / CMMC / Current</b> in SharePoint, on top of the usual local download. Requires a one-time Azure AD app registration in your tenant; see <b>CMMC_Tracker_Live_Check_Setup.md</b>. Nothing you sign into here ever passes through anyone but Microsoft and your own browser.</span><br>
+      <span id="sharepointStatus" style="display:none;font-size:11.5px;font-weight:700;"></span>
     </div>
     <div class="connect-right">
       <button class="pillbtn" id="connectBtn" onclick="connectMicrosoft()">🔐 Connect to Microsoft 365</button>
@@ -390,13 +391,21 @@ function toggleHint(id){
 // this is a public-client SPA registration, no client secret is used or needed.
 const MSAL_CLIENT_ID = 'b112d808-e384-4097-b3c3-379dd9a31d34';
 const MSAL_TENANT_ID = '960c41ba-856c-45d8-9dc5-191fd5e083af';
+// SharePoint destination for auto-saved reports (Export PDF / .txt / .json).
+// Parsed from https://guardianstategicsolutionsll.sharepoint.com/sites/Guardian/Shared%20Documents/CMMC/Current
+const SHAREPOINT_HOST = 'guardianstategicsolutionsll.sharepoint.com';
+const SHAREPOINT_SITE_PATH = 'Guardian';
+const SHAREPOINT_FOLDER_PATH = 'CMMC/Current'; // relative to the site's default document library (Shared Documents)
+let cachedSiteId = null;
+
 const GRAPH_SCOPES = [
   'Policy.Read.All',
   'Directory.Read.All',
   'RoleManagement.Read.Directory',
   'Reports.Read.All',
   'DeviceManagementConfiguration.Read.All',
-  'DeviceManagementManagedDevices.Read.All'
+  'DeviceManagementManagedDevices.Read.All',
+  'Sites.ReadWrite.All'
 ];
 
 let msalInstance = null;
@@ -491,6 +500,62 @@ async function graphGet(path){
     throw new Error(res.status+' '+res.statusText+(bodyText?(' — '+bodyText):''));
   }
   return res.json();
+}
+
+// ===================== SharePoint auto-save =====================
+async function getSharePointSiteId(){
+  if(cachedSiteId) return cachedSiteId;
+  const site = await graphGet('/sites/'+SHAREPOINT_HOST+':/sites/'+SHAREPOINT_SITE_PATH);
+  cachedSiteId = site.id;
+  return cachedSiteId;
+}
+
+async function uploadToSharePoint(filename, blob){
+  const token = await getGraphToken();
+  const siteId = await getSharePointSiteId();
+  const path = SHAREPOINT_FOLDER_PATH+'/'+filename;
+  const res = await fetch(
+    'https://graph.microsoft.com/v1.0/sites/'+siteId+'/drive/root:/'+path+':/content',
+    { method:'PUT', headers:{ Authorization:'Bearer '+token, 'Content-Type': blob.type||'application/octet-stream' }, body: blob }
+  );
+  if(!res.ok){
+    let bodyText = '';
+    try{ bodyText = (await res.json()).error?.message || ''; }catch(e){}
+    throw new Error(res.status+' '+res.statusText+(bodyText?(' — '+bodyText):''));
+  }
+  return res.json();
+}
+
+function setSharePointStatus(text, isError){
+  const el = document.getElementById('sharepointStatus');
+  if(!el) return;
+  el.style.display = 'block';
+  el.style.color = isError ? 'var(--notmet)' : 'var(--met)';
+  el.textContent = text;
+}
+
+// Every export (PDF / .txt / .json) always downloads locally first — that never
+// depends on being signed in. If connected to Microsoft 365, it *also* uploads the
+// same file to the shared CMMC/Current SharePoint folder automatically.
+function downloadBlob(filename, blob){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+async function saveReport(filename, blob){
+  downloadBlob(filename, blob);
+  if(!currentAccount){
+    setSharePointStatus('Not connected to Microsoft 365 — saved locally only. Connect above to also auto-save to SharePoint.', true);
+    return;
+  }
+  setSharePointStatus('📤 Saving a copy to SharePoint…', false);
+  try{
+    await uploadToSharePoint(filename, blob);
+    setSharePointStatus('✅ Saved to SharePoint: CMMC/Current/'+filename, false);
+  }catch(err){
+    setSharePointStatus('⚠ Could not save to SharePoint ('+(err && err.message ? err.message : err)+'). Downloaded locally instead.', true);
+  }
 }
 
 // Each entry keys to a Level 1 practice ID. One live signal per practice (Microsoft's
@@ -615,8 +680,10 @@ function applyLiveEvidence(pid,key){
   const stamp = '[Live check, '+new Date().toLocaleString()+']: '+result.detail;
   const updated = existing ? (existing+'\n\n'+stamp) : stamp;
   setObjective(pid,key,'note',updated);
-  // reflect into the visible textarea for this objective
-  const row = document.querySelector(`#details-${pid} textarea[oninput*="'${pid}','${key}'"]`);
+  // reflect into the visible textarea for this objective — getElementById does a
+  // literal string match, unlike querySelector, so the dots in practice IDs
+  // (e.g. "AC.L1-b.1.i") can't be misread as CSS class selectors here.
+  const row = document.getElementById('note-'+pid+'-'+key);
   if(row) row.value = updated;
   alert('Added to evidence notes. Review it, then set the finding (Met / Not Met / N/A) yourself — this tool never sets that for you.');
 }
@@ -715,7 +782,7 @@ function renderPractices(){
           <div class="radios">
             ${['met','notmet','na'].map(v=>`<label><input type="radio" name="${p.id}-${o.k}" value="${v}" ${cur.status===v?'checked':''} onchange="setObjective('${p.id}','${o.k}','status',this.value)"> ${v==='met'?'Met':v==='notmet'?'Not Met':'N/A'}</label>`).join('')}
           </div>
-          <textarea placeholder="Evidence / notes (recommended for MET, required for NOT MET or N/A)" rows="1" oninput="setObjective('${p.id}','${o.k}','note',this.value)">${escapeHtml(cur.note)}</textarea>
+          <textarea id="note-${p.id}-${o.k}" placeholder="Evidence / notes (recommended for MET, required for NOT MET or N/A)" rows="1" oninput="setObjective('${p.id}','${o.k}','note',this.value)">${escapeHtml(cur.note)}</textarea>
           <div class="warn" id="warn-${p.id}-${o.k}">⚠ Best practice: document the evidence supporting this finding (32 CFR §170.24).</div>
           ${buildHintToggle(p.id,o.k)}
           ${buildLiveToggle(p.id,o.k)}
@@ -821,10 +888,7 @@ function bindHeaderFields(){
 
 function exportJSON(){
   const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'CMMC-L1-progress-'+(state.date||'undated')+'.json';
-  a.click();
+  saveReport('CMMC-L1-progress-'+(state.date||'undated')+'.json', blob);
 }
 
 function importJSON(evt){
@@ -875,10 +939,7 @@ function exportReport(){
   lines.push('--------------------------------------------------');
   lines.push('Generated by CMMC Compliance Tracker.');
   const blob = new Blob([lines.join('\n')],{type:'text/plain'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'CMMC-L1-report-'+(state.date||'undated')+'.txt';
-  a.click();
+  saveReport('CMMC-L1-report-'+(state.date||'undated')+'.txt', blob);
 }
 
 function exportPDF(){
@@ -956,7 +1017,9 @@ function exportPDF(){
   });
 
   footer();
-  doc.save('CMMC-L1-report-'+(state.date||'undated')+'.pdf');
+  const filename = 'CMMC-L1-report-'+(state.date||'undated')+'.pdf';
+  const blob = doc.output('blob');
+  saveReport(filename, blob);
 }
 
 function resetAll(){
