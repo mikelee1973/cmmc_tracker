@@ -407,16 +407,23 @@ function msalConfigured(){
          MSAL_TENANT_ID && MSAL_TENANT_ID.indexOf('PASTE-YOUR') !== 0;
 }
 
-function initMsal(){
+let msalInitPromise = null;
+async function initMsal(){
   if(msalInstance) return msalInstance;
-  msalInstance = new msal.PublicClientApplication({
-    auth:{
-      clientId: MSAL_CLIENT_ID,
-      authority: 'https://login.microsoftonline.com/'+MSAL_TENANT_ID,
-      redirectUri: window.location.origin + window.location.pathname
-    },
-    cache:{ cacheLocation:'sessionStorage' }
-  });
+  if(!msalInitPromise){
+    msalInstance = new msal.PublicClientApplication({
+      auth:{
+        clientId: MSAL_CLIENT_ID,
+        authority: 'https://login.microsoftonline.com/'+MSAL_TENANT_ID,
+        redirectUri: window.location.origin + window.location.pathname
+      },
+      cache:{ cacheLocation:'sessionStorage' }
+    });
+    // msal-browser v3+ requires an explicit, awaited initialize() call before
+    // any other MSAL API (loginPopup, acquireTokenSilent, etc.) can be used.
+    msalInitPromise = msalInstance.initialize();
+  }
+  await msalInitPromise;
   return msalInstance;
 }
 
@@ -426,7 +433,7 @@ async function connectMicrosoft(){
     return;
   }
   try{
-    initMsal();
+    await initMsal();
     const resp = await msalInstance.loginPopup({ scopes: GRAPH_SCOPES });
     currentAccount = resp.account;
     setConnectUI(true, 'Connected as '+currentAccount.username);
