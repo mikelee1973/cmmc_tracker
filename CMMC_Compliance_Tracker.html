@@ -271,7 +271,7 @@
       <button class="modal-close" onclick="toggleGuide(false)">✕</button>
     </div>
     <div class="modal-body">
-      <div class="guide-updated">Guide last updated: 2026-07-22 (live checks added for AC.L1-b.1.i and SI.L1-b.1.xiii) · matches the current build of this tracker</div>
+      <div class="guide-updated">Guide last updated: 2026-07-22 (live checks added for AC.L1-b.1.i, SI.L1-b.1.xiii, and SI.L1-b.1.xiv) · matches the current build of this tracker</div>
 
       <h3>What this tool is (and isn't)</h3>
       <p>This is a self-assessment record-keeping tool for <b>CMMC Level 1</b> — 15 practices / 59 objectives, drawn directly from the DoD CMMC Assessment Guide – Level 1 (v2.13) and FAR 52.204-21. It helps you track findings, attach evidence notes, and export a report.</p>
@@ -298,7 +298,7 @@
 
       <h3>4. Live Microsoft 365 checks (optional)</h3>
       <p>Click <b>🔐 Connect to Microsoft 365</b> to sign in and let the tracker read a handful of real settings from your tenant via Microsoft Graph — Conditional Access, MFA registration, admin roles, Intune device compliance. These show up as advisory evidence with an <b>Insert into evidence notes</b> button; they never auto-set a finding for you.</p>
-      <p>8 of the 15 Level 1 practices have a live check so far (Access Control i/ii/iii, Identification &amp; Authentication v/vi, Media Protection vii, System Integrity xii/xiii) — more are being added over time. This requires a one-time Azure AD app registration by whoever has admin rights in your tenant — see <code>CMMC_Tracker_Live_Check_Setup.md</code> for that setup.</p>
+      <p>9 of the 15 Level 1 practices have a live check so far (Access Control i/ii/iii, Identification &amp; Authentication v/vi, Media Protection vii, System Integrity xii/xiii/xiv) — more are being added over time. This requires a one-time Azure AD app registration by whoever has admin rights in your tenant — see <code>CMMC_Tracker_Live_Check_Setup.md</code> for that setup.</p>
 
       <h3>5. Saving and sharing progress</h3>
       <ul>
@@ -839,6 +839,34 @@ const LIVE_CHECKS = {
     detail += '\n'+flagged.length+' need review: '+flagged.slice(0,8).map(r=>r.name+' ('+(r.error?'could not read protection state':('state: '+r.state+(r.ok?'':', protection disabled')))+')').join('; ')+(flagged.length>8?'; …':'');
   }
   detail += '\nThis confirms Microsoft Defender Antivirus is active and reporting clean on Windows endpoints — it doesn\'t inventory every "designated location" objective (a) asks about (e.g. email gateway, SharePoint/OneDrive), which stays a manual answer.';
+  return {status, detail};
+}},
+'SI.L1-b.1.xiv': { label:'Signature/engine update freshness (Defender/Intune)', run: async ()=>{
+  const devices = await graphGet('/deviceManagement/managedDevices?$select=id,deviceName,operatingSystem&$top=999');
+  const list = devices.value||[];
+  if(!list.length) return {status:'review', detail:'No Intune-managed devices returned. Either no devices are enrolled, or Intune isn\'t licensed/configured — this can\'t confirm update status either way, which stays manual.'};
+  const windowsDevices = list.filter(d=>(d.operatingSystem||'').toLowerCase()==='windows');
+  if(!windowsDevices.length) return {status:'review', detail:'Intune has '+list.length+' managed device(s), but none report as Windows. Defender signature/engine freshness is only exposed through this check for Windows devices — non-Windows devices (macOS, iOS, Android) need a manual confirmation of their update mechanism.'};
+  const CAP = 50;
+  const sample = windowsDevices.slice(0,CAP);
+  const outOfDateStatuses = ['avSignaturesOutOfDate','asSignaturesOutOfDate','platformOutOfDate','platformAboutToBeOutdated','signatureOrPlatformEndOfLifeIsPastOrIsImpending'];
+  const results = await Promise.all(sample.map(async d=>{
+    try{
+      const st = await graphGet('/deviceManagement/managedDevices/'+d.id+'/windowsProtectionState');
+      const stale = !!st.signatureUpdateOverdue || outOfDateStatuses.includes(st.productStatus);
+      return {name:d.deviceName, stale, signatureUpdateOverdue: !!st.signatureUpdateOverdue, productStatus: st.productStatus};
+    }catch(e){
+      return {name:d.deviceName, stale:true, error:true};
+    }
+  }));
+  const flagged = results.filter(r=>r.stale);
+  const status = flagged.length===0 ? 'good' : 'review';
+  let detail = 'Windows devices checked: '+results.length+(windowsDevices.length>CAP?(' of '+windowsDevices.length+', capped at '+CAP):'')+'.\n'
+    +(results.length-flagged.length)+' report current signatures/engine (no update overdue, no out-of-date status reported).';
+  if(flagged.length){
+    detail += '\n'+flagged.length+' need review: '+flagged.slice(0,8).map(r=>r.name+' ('+(r.error?'could not read protection state':(r.signatureUpdateOverdue?'signature update overdue':'status: '+r.productStatus))+')').join('; ')+(flagged.length>8?'; …':'');
+  }
+  detail += '\nThis reflects Defender\'s own automatic update mechanism on managed Windows endpoints — it doesn\'t confirm update currency for non-Microsoft tools or non-Windows devices, which stays manual.';
   return {status, detail};
 }}
 };
